@@ -24,7 +24,6 @@
 #include "ns3/packet.h"
 #include "ns3/simulator.h"
 
-#include "model/ndn-ns3.hpp"
 #include "model/ndn-l3-protocol.hpp"
 #include "helper/ndn-fib-helper.hpp"
 
@@ -125,7 +124,7 @@ ProbeDataProducer::OnInterest(shared_ptr<const Interest> interest)
   }
 
   signature.setInfo(signatureInfo);
-  signature.setValue(::ndn::nonNegativeIntegerBlock(::ndn::tlv::SignatureValue, m_signature));
+  signature.setValue(::ndn::makeNonNegativeIntegerBlock(::ndn::tlv::SignatureValue, m_signature));
 
   data->setSignature(signature);
 

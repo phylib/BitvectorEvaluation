@@ -86,12 +86,10 @@ main(int argc, char* argv[])
   Ptr<Node> producer1Probe = Names::Find<Node>("Prod1");
 
   // Consumer1
-/*  ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
+  ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
   consumerHelper.SetAttribute("PIRefreshInterval", StringValue("4")); // 1 interests every 4 seconds
   consumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
-  consumerHelper.SetAttribute("LifeTime", StringValue("5s"));*/
-  ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
-  consumerHelper.SetAttribute("Frequency", StringValue("100")); 
+  consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
   consumerHelper.SetPrefix(prefix1App);
   consumerHelper.Install(consumer1); 
 
@@ -102,11 +100,9 @@ main(int argc, char* argv[])
   consumerTestHelper.Install(consumer2); 
 
   // Producer1
-/*  ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer");
+  ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer");
   pushProducerHelper.SetAttribute("Frequency", StringValue("50")); // One packet every 0.02 Seconds
-  pushProducerHelper.SetAttribute("PayloadSize", StringValue("1000")); // 64kbps * 0.02sec + 58byte Packet-Overhead*/
-  ndn::AppHelper pushProducerHelper("ns3::ndn::Producer");
-  pushProducerHelper.SetAttribute("PayloadSize", StringValue("1024")); //bytes per packet
+  pushProducerHelper.SetAttribute("PayloadSize", StringValue("1000")); // 64kbps * 0.02sec + 58byte Packet-Overhead
   pushProducerHelper.SetPrefix(prefix1App);
   pushProducerHelper.Install(producer1);
 
