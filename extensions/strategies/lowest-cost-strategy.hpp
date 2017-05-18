@@ -51,8 +51,7 @@ public:
   LowestCostStrategy(Forwarder& forwarder, const Name& name = STRATEGY_NAME);
 
   virtual void
-  afterReceiveInterest(const Face& inFace, const Interest& interest,
-      shared_ptr<fib::Entry> fibEntry, shared_ptr<pit::Entry> pitEntry);
+  afterReceiveInterest(const Face& inFace, const Interest& interest, const shared_ptr<pit::Entry>& pitEntry);
 
   virtual void
   beforeSatisfyInterest(shared_ptr<pit::Entry> pitEntry, const Face& inFace, const Data& data);
@@ -61,7 +60,8 @@ public:
   afterReceiveNack(const Face& inFace, const lp::Nack& nack, const shared_ptr<pit::Entry>& pitEntry) ;*/
 
   virtual void
-  afterReceiveNack(const Face& inFace, const lp::Nack& nack, shared_ptr<fib::Entry> fibEntry, shared_ptr<pit::Entry> pitEntry) ;
+  afterReceiveNack(const Face& inFace, const lp::Nack& nack, shared_ptr<fib::Entry> fibEntry, 
+    shared_ptr<pit::Entry> pitEntry) ;
 
 public:
 
@@ -100,18 +100,23 @@ private:
       StrategyRequirements &paramPtr, shared_ptr<Face> currentWorkingFace);
 
   /**
-  * Returns a face by using the original BestRoute algorithm.
-  * Returns NULL if no valid face can be found.
-  */
+   * Returns a face by using the original BestRoute algorithm.
+   * Returns NULL if no valid face can be found.
+   */
   shared_ptr<Face> getFaceViaBestRoute(const fib::NextHopList& nexthops, shared_ptr<pit::Entry> pitEntry);
 
   /**
    * Returns the face with the lowest cost that satisfies exactly one requirement.
    * Returns the face with the best value (e.g., lowest delay if type == DELAY) if no face satisfies the requirement.
    */
-  shared_ptr<Face> getLowestTypeFace(const fib::NextHopList& nexthops,
+  /**
+   * The following code was ommited during the port from ndnSIM 2.1 -> 2.3,
+   * since it was never used anyway and is only left here in commented form 
+   * in case it may be needed in the future.
+   */
+/*  shared_ptr<Face> getLowestTypeFace(const fib::NextHopList& nexthops,
       shared_ptr<pit::Entry> pitEntry, RequirementType type, StrategyRequirements& requirements,
-      FaceId currentWorkingFace, bool isUpwardAttribute = false);
+      FaceId currentWorkingFace, bool isUpwardAttribute = false);*/
 
 private:
   scheduler::EventId probeTimer;

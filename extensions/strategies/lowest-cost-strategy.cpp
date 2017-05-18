@@ -20,6 +20,7 @@
 #include "lowest-cost-strategy.hpp"
 #include "core/logger.hpp"
 #include "fw/measurement-info.hpp"
+#include "fw/algorithm.hpp"
 
 namespace nfd {
 namespace fw {
@@ -38,8 +39,7 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
 
 void LowestCostStrategy::afterReceiveInterest(const Face& inFace, 
                                               const Interest& interest,
-                                              shared_ptr<fib::Entry> fibEntry, 
-                                              shared_ptr<pit::Entry> pitEntry)
+                                              const shared_ptr<pit::Entry>& pitEntry)
 {
   if (interest.isTainted())
   {
@@ -61,8 +61,13 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     measurementInfo->req.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
     measurementInfo->req.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
   }
+  /**
+  * The following code was ommited during the port from ndnSIM 2.1 -> 2.3,
+  * since it was never used anyway and is only left here in commented form 
+  * in case it may be needed in the future.
+  */
   // Check if incoming packet is a retransmission
-  if (pitEntry->hasUnexpiredOutRecords()) 
+/*  if (pitEntry->hasUnexpiredOutRecords()) 
   {
     if (interest.isPush()) 
     {
@@ -80,7 +85,14 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       // Retransmitted Interest from non-push consumer application. Don't forward.
       return;
     }
-  } 
+  } */
+
+  /**
+  * Fetch and prepare the fibEntry (needed since switch to ndnSIM 2.3, 
+  * where fibentry is no longer provided out of the box by "afterReceiveInterest")
+  */ 
+  shared_ptr<fib::Entry> fibEntry = shared_ptr<fib::Entry>(const_cast<fib::Entry*>(&this->lookupFib(*pitEntry)));
+
   // New Interest. Forward normally.
   forwardInterest(inFace, interest, fibEntry, pitEntry, measurementInfo);
 }
@@ -120,8 +132,10 @@ void LowestCostStrategy::forwardInterest( const Face& inFace,
         {
           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
           // NOTE: const_cast is a hack and should generally be avoided!
-          Interest& nonConstInterest = const_cast<Interest&> (interest);
+          Interest& nonConstInterest = const_cast<Interest&>(interest);
           nonConstInterest.setTainted(true);
+          // TODO: check if the conversion back to const is working/necessiary
+          // Interest& interest = const_cast<const Interest&>(nonConstInterest); 
 
           NFD_LOG_DEBUG("Tainted this interest: " << interest.getName());
 
@@ -140,11 +154,12 @@ void LowestCostStrategy::forwardInterest( const Face& inFace,
           // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
           lp::NackHeader nackHeader;
           nackHeader.setReason(lp::NackReason::NO_ROUTE);
-          // this->sendNack(pitEntry, inFace, nackHeader);
+          this->sendNack(pitEntry, inFace, nackHeader);
 
           // Manually re-insert an in-record for the pit entry, so the Interest can still be sent.
-          shared_ptr<Face> face = const_pointer_cast<Face>(inFace.shared_from_this());
-          pitEntry->insertOrUpdateInRecord(face, interest);
+          // NOTE: const_cast is a hack and should generally be avoided!
+          Face& nonConstInFace = const_cast<Face&> (inFace);
+          pitEntry->insertOrUpdateInRecord(nonConstInFace, interest);
 
           NFD_LOG_DEBUG("PitEntry in-records for interest after sending NACK: " << interest.getName());
           for (auto it = pitEntry->getInRecords().begin(), end = pitEntry->getInRecords().end(); it != end; ++it)
@@ -178,7 +193,7 @@ void LowestCostStrategy::forwardInterest( const Face& inFace,
   }
 
   // After everthing else is handled, forward the Interest.
-  this->sendInterest(pitEntry, outFace);
+  this->sendInterest(pitEntry, *outFace, interest);
 
   if (interest.isTainted())
   {
@@ -255,7 +270,7 @@ shared_ptr<Face> LowestCostStrategy::lookForBetterOutFace( const fib::NextHopLis
     if (alternativeDelay <= delayLimit && alternativeLoss <= lossLimit && alternativeBandwidth >= bandwidthLimit)
     {
       NFD_LOG_INFO("Well performing alternative face found: " << alternativeOutFace->getId());
-      if (pitEntry->canForwardTo(*alternativeOutFace)) { return alternativeOutFace; }
+      if (canForwardToLegacy(*pitEntry, *alternativeOutFace)) { return alternativeOutFace; }
     }
     else 
     {
@@ -264,7 +279,7 @@ shared_ptr<Face> LowestCostStrategy::lookForBetterOutFace( const fib::NextHopLis
       * If alternative also underperforms, take the next best alternative and hope for the best 
       * (since there is no performance data available yet)
       */
-       if (pitEntry->canForwardTo(*alternativeOutFace)) { return getAlternativeOutFace(alternativeOutFace, nexthops); }      
+       if (canForwardToLegacy(*pitEntry, *alternativeOutFace)) { return getAlternativeOutFace(alternativeOutFace, nexthops); }      
     }
   } 
   return currentWorkingFace;
@@ -273,7 +288,7 @@ shared_ptr<Face> LowestCostStrategy::lookForBetterOutFace( const fib::NextHopLis
 static inline bool
 predicate_PitEntry_canForwardTo_NextHop(shared_ptr<pit::Entry> pitEntry, const fib::NextHop& nexthop)
 {
-  return pitEntry->canForwardTo(*nexthop.getFace());
+  return canForwardToLegacy(*pitEntry, nexthop.getFace());
 }
 
 shared_ptr<Face> LowestCostStrategy::getFaceViaBestRoute( const fib::NextHopList& nexthops, 
@@ -287,11 +302,15 @@ shared_ptr<Face> LowestCostStrategy::getFaceViaBestRoute( const fib::NextHopList
     return nullptr;
   }
 
-  return it->getFace();
+  return shared_ptr<Face>(&it->getFace());
 }
 
-
-shared_ptr<Face> LowestCostStrategy::getLowestTypeFace( const fib::NextHopList& nexthops,
+/**
+* The following code was ommited during the port from ndnSIM 2.1 -> 2.3,
+* since it was never used anyway and is only left here in commented form 
+* in case it may be needed in the future.
+*/
+/*shared_ptr<Face> LowestCostStrategy::getLowestTypeFace( const fib::NextHopList& nexthops,
                                                         shared_ptr<pit::Entry> pitEntry, 
                                                         RequirementType type, 
                                                         StrategyRequirements &requirements,
@@ -353,7 +372,7 @@ shared_ptr<Face> LowestCostStrategy::getLowestTypeFace( const fib::NextHopList& 
     }
   }
   return outFace;
-}
+}*/
 
 
 shared_ptr<Face> LowestCostStrategy::getAlternativeOutFace( const shared_ptr<Face> outFace, 
@@ -366,8 +385,8 @@ shared_ptr<Face> LowestCostStrategy::getAlternativeOutFace( const shared_ptr<Fac
     while (iterations < 2) {
       for (auto n : nexthops) 
       { 
-        if (faceFound) {return n.getFace();} 
-        if (n.getFace() == outFace) {faceFound = true;}
+        if (faceFound) {return shared_ptr<Face>(&n.getFace());} 
+        if (n.getFace().getId() == outFace->getId()) {faceFound = true;}
       }
       iterations++;
     }
