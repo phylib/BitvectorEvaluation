@@ -81,29 +81,22 @@ public:
 private:
 
   /**
-   * Executes all steps necessary for forwarding. Previously part of "afterReceiveInterest"
-   * but was split off into own method to achieve better code readability.
-   */
-  void forwardInterest( const Face& inFace, const Interest& interest, 
-      shared_ptr<fib::Entry> fibEntry, shared_ptr<pit::Entry> pitEntry, shared_ptr<MeasurementInfo> measurementInfo);
-
-  /**
    * Returns an alternative path for probing by selecting the next entry in the FIB
    * in regards to the current working face.
    */
-  shared_ptr<Face> getAlternativeOutFace(const shared_ptr<Face> outFace, const fib::NextHopList& nexthops);
+  Face& getAlternativeOutFace(Face& outFace, const fib::NextHopList& nexthops);
 
   /**
    * Returns the face with the lowest cost that satisfies all requirements.
    */
-  shared_ptr<Face> lookForBetterOutFace(const fib::NextHopList& nexthops, shared_ptr<pit::Entry> pitEntry,
-      StrategyRequirements &paramPtr, shared_ptr<Face> currentWorkingFace);
+  Face& lookForBetterOutFace(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry,
+      StrategyRequirements &paramPtr, Face& currentWorkingFace);
 
   /**
    * Returns a face by using the original BestRoute algorithm.
    * Returns NULL if no valid face can be found.
    */
-  shared_ptr<Face> getFaceViaBestRoute(const fib::NextHopList& nexthops, shared_ptr<pit::Entry> pitEntry);
+  Face& getFaceViaBestRoute(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry);
 
   /**
    * Returns the face with the lowest cost that satisfies exactly one requirement.
@@ -135,7 +128,7 @@ private:
   std::set<std::string> myTaintedProbes;
 
   // A pointer to the currently best outface on which the PIs should be forwarded 
-  shared_ptr < Face > currentBestOutFace;
+  fib::NextHopList::const_iterator currentBestOutFace;
 };
 
 }  // namespace fw
