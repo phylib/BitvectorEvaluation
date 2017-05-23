@@ -43,7 +43,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
                                               const shared_ptr<pit::Entry>& pitEntry)
 {
 
-  NFD_LOG_INFO("Incoming interest: " << interest.getName());
+  // NFD_LOG_INFO("Incoming interest: " << interest.getName());
 
   Name currentPrefix;
   shared_ptr < MeasurementInfo > measurementInfo;
@@ -54,115 +54,99 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   if (measurementInfo == nullptr) 
   {
     // Create new prefix
-    nfd::MeasurementsAccessor& ma = this->getMeasurements();
-    measurementInfo = StrategyHelper::addPrefixMeasurements(interest, ma);
+    // nfd::MeasurementsAccessor& ma = this->getMeasurements();
+    // measurementInfo = StrategyHelper::addPrefixMeasurements(interest, ma);
     // measurementInfo->req.setParameter(RequirementType::DELAY, REQUIREMENT_MAXDELAY);
     // measurementInfo->req.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
     // measurementInfo->req.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
   }
 
-//   /**
-//   * Fetch and prepare the fibEntry (needed since switch to ndnSIM 2.3, 
-//   * where fibentry is no longer provided out of the box by "afterReceiveInterest")
-//   */ 
+  /**
+  * Fetch and prepare the fibEntry (needed since switch to ndnSIM 2.3, 
+  * where fibentry is no longer provided out of the box by "afterReceiveInterest")
+  */ 
   const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
   const fib::NextHopList& nexthops = fibEntry.getNextHops();
-//   // currentBestOutFace = nexthops.end();
+  // currentBestOutFace = nexthops.end();
 
-//   // Check if currentBestOutFace is still uninitialised
-//   // if (currentBestOutFace == nullptr) 
-//   // {
-//     // currentBestOutFace = getFaceViaBestRoute(nexthops, pitEntry);
-//     currentBestOutFace = nexthops.begin();
-//   // }
+  // Check if currentBestOutFace is still uninitialised
+  // if (currentBestOutFace == nullptr) 
+  // {
+    // currentBestOutFace = getFaceViaBestRoute(nexthops, pitEntry);
+  currentBestOutFace = nexthops.begin();
+  // }
 
-//   // Create a pointer to the outface that this Interest will be forwarded to
-//   Face& outFace = currentBestOutFace->getFace();
+  // Create a pointer to the outface that this Interest will be forwarded to
+  Face& outFace = currentBestOutFace->getFace();
 
-//   // Check if packet is a probe (push Interests should not be redirected)
-//   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
-//   {
-//     // Determine best outFace (could be another one than currentBestOutFace)
-//     // currentBestOutFace = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFace->getFace());
-//     // outFace = currentBestOutFace->getFace();
+  // Check if packet is a probe (push Interests should not be redirected)
+  if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
+  {
+    // Determine best outFace (could be another one than currentBestOutFace)
+    // currentBestOutFace = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFace->getFace());
+    // outFace = currentBestOutFace->getFace();
 
-//     // Check if packet is untainted (tainted packets must not be redirected or measured)
-//     if (!interest.isTainted())
-//     {
-//       // Check if there is more than one outFace (no need to probe if no alternatives available)
-//       if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_PROBING)
-//       {
-//         // Check if this router is allowed to use some probes for monitoring alternative routes 
-//         if (helper.probingDue() && PROBING_ENABLED) //TODO: write own solution for probingDue()?
-//         {
-//           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
-//           // NOTE: const_cast is a hack and should generally be avoided!
-//           Interest& nonConstInterest = const_cast<Interest&>(interest);
-//           nonConstInterest.setTainted(true);
-//           // TODO: check if the conversion back to const is working/necessiary
-//           // Interest& interest = const_cast<const Interest&>(nonConstInterest); 
+    // Check if packet is untainted (tainted packets must not be redirected or measured)
+    if (!interest.isTainted())
+    {
+      // Check if there is more than one outFace (no need to probe if no alternatives available)
+      if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_PROBING)
+      {
+        // Check if this router is allowed to use some probes for monitoring alternative routes 
+        if (helper.probingDue() && PROBING_ENABLED) //TODO: write own solution for probingDue()?
+        {
+          // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
+          // NOTE: const_cast is a hack and should generally be avoided!
+          Interest& nonConstInterest = const_cast<Interest&>(interest);
+          nonConstInterest.setTainted(true);
+          // TODO: check if the conversion back to const is working/necessiary
+          // Interest& interest = const_cast<const Interest&>(nonConstInterest); 
 
-//           NFD_LOG_DEBUG("Tainted this interest: " << interest.getName());
+          // NFD_LOG_DEBUG("Tainted this interest: " << interest.getName());
 
-//           // Remember that this probe was tainted by this router, so the corresponding data can be recognized
-//           myTaintedProbes.insert(interest.getName().toUri());
+          // Remember that this probe was tainted by this router, so the corresponding data can be recognized
+          myTaintedProbes.insert(interest.getName().toUri());
 
-//           // Prepare an alternative path for the probe 
-//           // outFace = getAlternativeOutFace(currentBestOutFace->getFace(), nexthops);   
+          // Prepare an alternative path for the probe 
+          // outFace = getAlternativeOutFace(currentBestOutFace->getFace(), nexthops);   
 
-//           NFD_LOG_DEBUG("PitEntry in-records for interest before sending NACK: " << interest.getName());
-//           for (auto it = pitEntry->getInRecords().begin(), end = pitEntry->getInRecords().end(); it != end; ++it)
-//           {
-//             NFD_LOG_DEBUG(it->getInterest().getName());
-//           }
+          // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
+          lp::NackHeader nackHeader;
+          nackHeader.setReason(lp::NackReason::TAINTED);
+          this->sendNack(pitEntry, inFace, nackHeader);
 
-//           // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
-//           lp::NackHeader nackHeader;
-//           nackHeader.setReason(lp::NackReason::NO_ROUTE);
-//           this->sendNack(pitEntry, inFace, nackHeader);
+          NFD_LOG_DEBUG("Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << " with reason " << nackHeader.getReason());
+          // std::cout << "Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << std::endl;
 
-//           // Manually re-insert an in-record for the pit entry, so the Interest can still be sent.
-//           // NOTE: const_cast is a hack and should generally be avoided!
-//           Face& nonConstInFace = const_cast<Face&> (inFace);
-//           pitEntry->insertOrUpdateInRecord(nonConstInFace, interest);
+          // Manually re-insert an in-record for the pit entry, so the Interest can still be sent.
+          // NOTE: const_cast is a hack and should generally be avoided!
+          Face& nonConstInFace = const_cast<Face&> (inFace);
+          pitEntry->insertOrUpdateInRecord(nonConstInFace, interest);
 
-//           NFD_LOG_DEBUG("PitEntry in-records for interest after sending NACK: " << interest.getName());
-//           for (auto it = pitEntry->getInRecords().begin(), end = pitEntry->getInRecords().end(); it != end; ++it)
-//           {
-//             NFD_LOG_DEBUG(it->getInterest().getName());
-//           }
+        }
+      }
+      // Save the probe's sending time in a map for later calculations of rtt. This is a workaround  
+      // since "outRecord->getLastRenewed()" somehow doesn't provide the right value. 
+      rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
 
-//           // NOTE: Don't enter outgoing Nack pipeline because it needs an in-record.
-// /*          lp::Nack nack(interest);
-//           nack.setReason(lp::NackReason::TAINTED);
-//           const_cast<Face&>(inFace).sendNack(nack);*/
+      // Inform the original estimators (by Klaus Schneider) about the probe
+      faceInfoTable[outFace.getId()].addSentInterest(interest.getName().toUri()); 
+    }
+  } 
 
-//           NFD_LOG_DEBUG("Send NACK for interest: " << interest.getName() << " on face " << inFace.getId());
-//           std::cout << "Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << std::endl;
-//         }
-//       }
-//       // Save the probe's sending time in a map for later calculations of rtt. This is a workaround  
-//       // since "outRecord->getLastRenewed()" somehow doesn't provide the right value. 
-//       rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
+  // Check if chosen face is the face the interest came from
+  if (outFace.getId() == inFace.getId())
+  {
+    NFD_LOG_INFO("outFace " << outFace.getId() << " == inFace " << inFace.getId() << " " << interest.getName());
+    // outFace = getAlternativeOutFace(outFace, nexthops);
+  }
 
-//       // Inform the original estimators (by Klaus Schneider) about the probe
-//       faceInfoTable[outFace.getId()].addSentInterest(interest.getName().toUri()); 
-//     }
-//   } 
-
-//   // Check if chosen face is the face the interest came from
-//   if (outFace.getId() == inFace.getId())
-//   {
-//     NFD_LOG_INFO("outFace " << outFace.getId() << " == inFace " << inFace.getId() << " " << interest.getName());
-//     // outFace = getAlternativeOutFace(outFace, nexthops);
-//   }
-
-  // // After everthing else is handled, forward the Interest.
-  // this->sendInterest(pitEntry, outFace, interest);
+  // After everthing else is handled, forward the Interest.
+  this->sendInterest(pitEntry, outFace, interest);
 
   // NFD_LOG_INFO("Sent interest " << interest.getName() << " to " << outFace.getId());
 
-  this->sendInterest(pitEntry, nexthops[0].getFace(), interest);
+
 
 /*  if (outFace->getId() != currentBestOutFace->getId())
   {
@@ -269,75 +253,6 @@ Face& LowestCostStrategy::getFaceViaBestRoute( const fib::NextHopList& nexthops,
   return nexthops[0].getFace();
 }
 
-/**
-* The following code was ommited during the port from ndnSIM 2.1 -> 2.3,
-* since it was never used anyway and is only left here in commented form 
-* in case it may be needed in the future.
-*/
-/*shared_ptr<Face> LowestCostStrategy::getLowestTypeFace( const fib::NextHopList& nexthops,
-                                                        shared_ptr<pit::Entry> pitEntry, 
-                                                        RequirementType type, 
-                                                        StrategyRequirements &requirements,
-                                                        FaceId currentWorkingFaceId, 
-                                                        bool isUpwardAttribute)
-{
-  shared_ptr < Face > outFace = NULL;
-
-  // Returning lowest cost face.
-  if (type == RequirementType::COST) {
-    return nexthops.front().getFace();
-  }
-
-  for (auto n : nexthops) {
-    bool isWorkingFace = (n.getFace()->getId() == currentWorkingFaceId);
-    double currentLimit;
-    currentLimit = requirements.getLimit(type);
-    if (!isWorkingFace) {
-      if (StrategyRequirements::isUpwardAttribute(type)) {
-        currentLimit *= (1.0 + HYSTERESIS_PERCENTAGE);
-      }
-      else {
-        currentLimit /= (1.0 + HYSTERESIS_PERCENTAGE);
-      }
-    }
-    double currentValue = faceInfoTable[n.getFace()->getId()].getCurrentValue(type);
-    if (pitEntry->canForwardTo(*n.getFace())) {
-      if (!isUpwardAttribute && currentValue < currentLimit) {
-        outFace = n.getFace();
-        break;
-      }
-      if (isUpwardAttribute && currentValue > currentLimit) {
-        outFace = n.getFace();
-        break;
-      }
-    }
-  }
-
-  // If no face meets the requirement: Send out on best face.
-  if (outFace == NULL) {
-    double lowestValue = std::numeric_limits<double>::infinity();
-    double highestValue = -1;
-    for (auto n : nexthops) {
-      double currentValue = faceInfoTable[n.getFace()->getId()].getCurrentValue(type);
-      if (!isUpwardAttribute && pitEntry->canForwardTo(*n.getFace())
-          && currentValue < lowestValue) {
-        lowestValue = currentValue;
-        outFace = n.getFace();
-      }
-      if (isUpwardAttribute && pitEntry->canForwardTo(*n.getFace())
-          && currentValue > highestValue) {
-        NFD_LOG_TRACE(
-            "Highest value: " << currentValue << ", " << highestValue << ", face: "
-                << n.getFace()->getId());
-        highestValue = currentValue;
-        outFace = n.getFace();
-      }
-
-    }
-  }
-  return outFace;
-}*/
-
 
 Face& LowestCostStrategy::getAlternativeOutFace( Face& outFace, 
                                                             const fib::NextHopList& nexthops)
@@ -362,6 +277,8 @@ void LowestCostStrategy::beforeSatisfyInterest( shared_ptr<pit::Entry> pitEntry,
                                                 const Face& inFace,
                                                 const Data& data)
 {
+  NFD_LOG_DEBUG("Received data: " << data.getName());
+
   // Check if incoming data is probe data
   if (data.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
@@ -414,21 +331,17 @@ void LowestCostStrategy::beforeSatisfyInterest( shared_ptr<pit::Entry> pitEntry,
   } 
 }
 
-/*void LowestCostStrategy::afterReceiveNack(const Face& inFace, 
-                                          const lp::Nack& nack, 
-                                          const shared_ptr<pit::Entry>& pitEntry)*/ 
-void
-LowestCostStrategy::afterReceiveNack(const Face& inFace, 
-                                     const lp::Nack& nack,
-                                     shared_ptr<fib::Entry> fibEntry,
-                                     shared_ptr<pit::Entry> pitEntry)
+void 
+LowestCostStrategy::afterReceiveNack( const Face& inFace, 
+                                      const lp::Nack& nack, 
+                                      const shared_ptr<pit::Entry>& pitEntry) 
 {
-  std::cout << "received NACK for " << pitEntry->getInterest().getName() << std::endl;
-  NFD_LOG_DEBUG("received NACK for " << pitEntry->getInterest().getName());
+  // std::cout << "Received NACK for " << pitEntry->getInterest().getName() << std::endl;
+  NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName());
 
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
-    NFD_LOG_DEBUG("received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
+    NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
 
       // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*

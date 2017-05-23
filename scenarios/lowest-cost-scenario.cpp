@@ -53,7 +53,7 @@ main(int argc, char* argv[])
   nodesWithNewStrat.Add(Names::Find<Node>("NodeH"));
   nodesWithNewStrat.Add(Names::Find<Node>("NodeI"));
   nodesWithNewStrat.Add(Names::Find<Node>("End2"));
-  // nodesWithNewStrat.Add(Names::Find<Node>("Prod1"));
+  nodesWithNewStrat.Add(Names::Find<Node>("Prod1"));
 
 
   // Choosing a forwarding strategy
@@ -95,7 +95,7 @@ main(int argc, char* argv[])
 
   // Consumer2
   ndn::AppHelper consumerTestHelper("ns3::ndn::ConsumerCbr");
-  consumerTestHelper.SetAttribute("Frequency", StringValue("100")); 
+  consumerTestHelper.SetAttribute("Frequency", StringValue("1")); 
   consumerTestHelper.SetPrefix(prefix2);
   consumerTestHelper.Install(consumer2); 
 
@@ -132,8 +132,8 @@ main(int argc, char* argv[])
   // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::UpLink, 
   //   Names::Find<Node>("Cons2"), Names::Find<Node>("NodeA"));
 
-  Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::FailLink, 
-    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
+  // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::FailLink, 
+  //   Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
   // Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
   //   Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
 

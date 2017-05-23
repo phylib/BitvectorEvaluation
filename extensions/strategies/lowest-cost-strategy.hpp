@@ -56,12 +56,9 @@ public:
   virtual void
   beforeSatisfyInterest(shared_ptr<pit::Entry> pitEntry, const Face& inFace, const Data& data);
 
-/*  virtual void 
-  afterReceiveNack(const Face& inFace, const lp::Nack& nack, const shared_ptr<pit::Entry>& pitEntry) ;*/
+  virtual void 
+  afterReceiveNack(const Face& inFace, const lp::Nack& nack, const shared_ptr<pit::Entry>& pitEntry) ;
 
-  virtual void
-  afterReceiveNack(const Face& inFace, const lp::Nack& nack, shared_ptr<fib::Entry> fibEntry, 
-    shared_ptr<pit::Entry> pitEntry) ;
 
 public:
 
