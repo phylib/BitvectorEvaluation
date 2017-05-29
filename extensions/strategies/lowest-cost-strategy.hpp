@@ -125,7 +125,7 @@ private:
   std::set<std::string> myTaintedProbes;
 
   // A pointer to the currently best outface on which the PIs should be forwarded 
-  fib::NextHopList::const_iterator currentBestOutFace;
+  std::shared_ptr<Face> currentBestOutFace;
 };
 
 }  // namespace fw

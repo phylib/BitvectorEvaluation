@@ -67,17 +67,16 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   */ 
   const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
   const fib::NextHopList& nexthops = fibEntry.getNextHops();
-  // currentBestOutFace = nexthops.end();
 
   // Check if currentBestOutFace is still uninitialised
-  // if (currentBestOutFace == nullptr) 
-  // {
-    // currentBestOutFace = getFaceViaBestRoute(nexthops, pitEntry);
-  currentBestOutFace = nexthops.begin();
-  // }
+  if (currentBestOutFace == nullptr) 
+  {
+    // NFD_LOG_DEBUG("currentBestOutFace == nullptr");
+    currentBestOutFace = shared_ptr<Face>(&getFaceViaBestRoute(nexthops, pitEntry));
+  }
 
   // Create a pointer to the outface that this Interest will be forwarded to
-  Face& outFace = currentBestOutFace->getFace();
+  shared_ptr<Face> outFace = currentBestOutFace;
 
   // Check if packet is a probe (push Interests should not be redirected)
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
@@ -130,19 +129,37 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
 
       // Inform the original estimators (by Klaus Schneider) about the probe
-      faceInfoTable[outFace.getId()].addSentInterest(interest.getName().toUri()); 
+      faceInfoTable[outFace->getId()].addSentInterest(interest.getName().toUri()); 
     }
   } 
 
   // Check if chosen face is the face the interest came from
-  if (outFace.getId() == inFace.getId())
+  if (outFace->getId() == inFace.getId())
   {
-    NFD_LOG_INFO("outFace " << outFace.getId() << " == inFace " << inFace.getId() << " " << interest.getName());
+    NFD_LOG_INFO("outFace " << outFace->getId() << " == inFace " << inFace.getId() << " " << interest.getName());
     // outFace = getAlternativeOutFace(outFace, nexthops);
   }
 
   // After everthing else is handled, forward the Interest.
-  this->sendInterest(pitEntry, outFace, interest);
+  /*
+  * TODO: Find out why the simulator crashes at 4s with the error
+  * 'what():  Name component does not have the requested marker or the value is not a nonNegativeInteger'
+  * just because the face is handed over to sendInterest in another way?
+  */
+  // this->sendInterest(pitEntry, *outFace, interest); 
+  // this->sendInterest(pitEntry, nexthops[0].getFace(), interest);
+  for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
+    Face& finalOutFace = it->getFace();
+    if (finalOutFace.getId() == outFace->getId() && 
+      !wouldViolateScope(inFace, interest, finalOutFace) && 
+      canForwardToLegacy(*pitEntry, finalOutFace)) 
+    {
+      this->sendInterest(pitEntry, finalOutFace, interest);
+      return;
+    }
+  }
+
+  NFD_LOG_DEBUG("No apropriate face found.");
 
   // NFD_LOG_INFO("Sent interest " << interest.getName() << " to " << outFace.getId());
 
