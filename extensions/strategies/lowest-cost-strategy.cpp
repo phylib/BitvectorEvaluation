@@ -139,17 +139,9 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     selectedOutFaceId = getAlternativeOutFaceId(selectedOutFaceId, nexthops);
   }
 
-  // After everthing else is handled, forward the Interest.
-  for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
-    Face& outFace = it->getFace();
-    if (outFace.getId() == selectedOutFaceId) 
-    {
-      this->sendInterest(pitEntry, outFace, interest);
-      return;
-    }
-  }
-  NFD_LOG_WARN("No apropriate face found.");
-  return; 
+  // After everthing else is handled, forward the Interest on the selected face.
+  this->sendInterest(pitEntry, getFaceViaId(selectedOutFaceId, nexthops), interest);
+  return;
 }
 
 
@@ -267,7 +259,7 @@ Face& LowestCostStrategy::getFaceViaId( FaceId faceId,
       return it->getFace();
     }
   }
-  NFD_LOG_WARN("Face was not found in nexthops. Returned face " << (int) nexthops[0].getFace().getId() << " instead.");
+  NFD_LOG_WARN("Face " << (int)faceId << " was not found in nexthops. Returned face " << (int) nexthops[0].getFace().getId() << " instead.");
   return nexthops[0].getFace();
 }
 
