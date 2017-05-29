@@ -76,14 +76,14 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   }
 
   // Create a pointer to the outface that this Interest will be forwarded to
-  shared_ptr<Face> outFace = currentBestOutFace;
+  shared_ptr<Face> selectedOutFace = currentBestOutFace;
 
   // Check if packet is a probe (push Interests should not be redirected)
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
-    // currentBestOutFace = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFace->getFace());
-    // outFace = currentBestOutFace->getFace();
+    // currentBestOutFace = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFace);
+    selectedOutFace = currentBestOutFace;
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
@@ -107,15 +107,14 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           myTaintedProbes.insert(interest.getName().toUri());
 
           // Prepare an alternative path for the probe 
-          // outFace = getAlternativeOutFace(currentBestOutFace->getFace(), nexthops);   
+          // selectedOutFace = getAlternativeOutFace(*currentBestOutFace, nexthops);   
 
           // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
           lp::NackHeader nackHeader;
           nackHeader.setReason(lp::NackReason::TAINTED);
           this->sendNack(pitEntry, inFace, nackHeader);
 
-          NFD_LOG_DEBUG("Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << " with reason " << nackHeader.getReason());
-          // std::cout << "Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << std::endl;
+          // NFD_LOG_DEBUG("Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << " with reason " << nackHeader.getReason());
 
           // Manually re-insert an in-record for the pit entry, so the Interest can still be sent.
           // NOTE: const_cast is a hack and should generally be avoided!
@@ -129,15 +128,15 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
 
       // Inform the original estimators (by Klaus Schneider) about the probe
-      faceInfoTable[outFace->getId()].addSentInterest(interest.getName().toUri()); 
+      faceInfoTable[selectedOutFace->getId()].addSentInterest(interest.getName().toUri()); 
     }
   } 
 
   // Check if chosen face is the face the interest came from
-  if (outFace->getId() == inFace.getId())
+  if (selectedOutFace->getId() == inFace.getId())
   {
-    NFD_LOG_INFO("outFace " << outFace->getId() << " == inFace " << inFace.getId() << " " << interest.getName());
-    // outFace = getAlternativeOutFace(outFace, nexthops);
+    NFD_LOG_INFO("selectedOutFace " << selectedOutFace->getId() << " == inFace " << inFace.getId() << " " << interest.getName());
+    // selectedOutFace = getAlternativeOutFace(selectedOutFace, nexthops);
   }
 
   // After everthing else is handled, forward the Interest.
@@ -149,12 +148,12 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // this->sendInterest(pitEntry, *outFace, interest); 
   // this->sendInterest(pitEntry, nexthops[0].getFace(), interest);
   for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
-    Face& finalOutFace = it->getFace();
-    if (finalOutFace.getId() == outFace->getId() && 
-      !wouldViolateScope(inFace, interest, finalOutFace) && 
-      canForwardToLegacy(*pitEntry, finalOutFace)) 
+    Face& outFace = it->getFace();
+    if (outFace.getId() == selectedOutFace->getId() && 
+      !wouldViolateScope(inFace, interest, outFace) && 
+      canForwardToLegacy(*pitEntry, outFace)) 
     {
-      this->sendInterest(pitEntry, finalOutFace, interest);
+      this->sendInterest(pitEntry, outFace, interest);
       return;
     }
   }
@@ -353,12 +352,9 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
                                       const lp::Nack& nack, 
                                       const shared_ptr<pit::Entry>& pitEntry) 
 {
-  // std::cout << "Received NACK for " << pitEntry->getInterest().getName() << std::endl;
-  NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName());
-
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
-    NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
+    // NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
 
       // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*

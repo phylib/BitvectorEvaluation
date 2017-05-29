@@ -263,7 +263,7 @@ PushConsumer::SendProbe()
   time::milliseconds interestLifeTime(m_interestLifeTime.GetMilliSeconds()); 
   probeInterest->setInterestLifetime(interestLifeTime); 
 
-  NS_LOG_INFO("> Interest for " << probeInterest->toUri());
+  NS_LOG_INFO("> Probe for " << probeInterest->toUri());
 
   m_transmittedInterests(probeInterest, this, m_face);
   m_appLink->onReceiveInterest(*probeInterest);
