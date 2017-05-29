@@ -53,7 +53,7 @@ main(int argc, char* argv[])
   nodesWithNewStrat.Add(Names::Find<Node>("NodeH"));
   nodesWithNewStrat.Add(Names::Find<Node>("NodeI"));
   nodesWithNewStrat.Add(Names::Find<Node>("End2"));
-  nodesWithNewStrat.Add(Names::Find<Node>("Prod1"));
+  // nodesWithNewStrat.Add(Names::Find<Node>("Prod1")); // TODO find solution so this can be enabled too.
 
 
   // Choosing a forwarding strategy

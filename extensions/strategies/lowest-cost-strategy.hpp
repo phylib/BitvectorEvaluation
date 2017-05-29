@@ -81,7 +81,7 @@ private:
    * Returns an alternative path for probing by selecting the next entry in the FIB
    * in regards to the current working face.
    */
-  Face& getAlternativeOutFace(Face& outFace, const fib::NextHopList& nexthops);
+  FaceId getAlternativeOutFaceId(FaceId outFaceId, const fib::NextHopList& nexthops);
 
   /**
    * Returns the face with the lowest cost that satisfies all requirements.
@@ -96,17 +96,10 @@ private:
   Face& getFaceViaBestRoute(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry);
 
   /**
-   * Returns the face with the lowest cost that satisfies exactly one requirement.
-   * Returns the face with the best value (e.g., lowest delay if type == DELAY) if no face satisfies the requirement.
+   * Searches the given NextHopList for a face with the given id.
+   * Returns the face which corresponds to the given id.
    */
-  /**
-   * The following code was ommited during the port from ndnSIM 2.1 -> 2.3,
-   * since it was never used anyway and is only left here in commented form 
-   * in case it may be needed in the future.
-   */
-/*  shared_ptr<Face> getLowestTypeFace(const fib::NextHopList& nexthops,
-      shared_ptr<pit::Entry> pitEntry, RequirementType type, StrategyRequirements& requirements,
-      FaceId currentWorkingFace, bool isUpwardAttribute = false);*/
+  Face& getFaceViaId(FaceId faceId , const fib::NextHopList& nexthops);
 
 private:
   scheduler::EventId probeTimer;
@@ -125,7 +118,7 @@ private:
   std::set<std::string> myTaintedProbes;
 
   // A pointer to the currently best outface on which the PIs should be forwarded 
-  std::shared_ptr<Face> currentBestOutFace;
+  FaceId currentBestOutFaceId;
 };
 
 }  // namespace fw

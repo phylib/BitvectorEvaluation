@@ -34,7 +34,7 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
  :  Strategy(forwarder, name), 
     ownStrategyChoice(forwarder.getStrategyChoice()),
     priorityType(RequirementType::DELAY),
-    currentBestOutFace(nullptr)
+    currentBestOutFaceId(0)
 {
 }
 
@@ -68,22 +68,22 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
   const fib::NextHopList& nexthops = fibEntry.getNextHops();
 
-  // Check if currentBestOutFace is still uninitialised
-  if (currentBestOutFace == nullptr) 
+  // Check if currentBestOutFaceId is still uninitialised
+  if (currentBestOutFaceId == 0) 
   {
     // NFD_LOG_DEBUG("currentBestOutFace == nullptr");
-    currentBestOutFace = shared_ptr<Face>(&getFaceViaBestRoute(nexthops, pitEntry));
+    currentBestOutFaceId = getFaceViaBestRoute(nexthops, pitEntry).getId();
   }
 
   // Create a pointer to the outface that this Interest will be forwarded to
-  shared_ptr<Face> selectedOutFace = currentBestOutFace;
+  FaceId selectedOutFaceId = currentBestOutFaceId;
 
   // Check if packet is a probe (push Interests should not be redirected)
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
-    // currentBestOutFace = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFace);
-    selectedOutFace = currentBestOutFace;
+    // currentBestOutFaceId = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFaceId);
+    selectedOutFaceId = currentBestOutFaceId;
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
@@ -107,7 +107,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           myTaintedProbes.insert(interest.getName().toUri());
 
           // Prepare an alternative path for the probe 
-          // selectedOutFace = getAlternativeOutFace(*currentBestOutFace, nexthops);   
+          selectedOutFaceId = getAlternativeOutFaceId(currentBestOutFaceId, nexthops);   
 
           // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
           lp::NackHeader nackHeader;
@@ -128,58 +128,27 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
 
       // Inform the original estimators (by Klaus Schneider) about the probe
-      faceInfoTable[selectedOutFace->getId()].addSentInterest(interest.getName().toUri()); 
+      faceInfoTable[selectedOutFaceId].addSentInterest(interest.getName().toUri()); 
     }
   } 
 
   // Check if chosen face is the face the interest came from
-  if (selectedOutFace->getId() == inFace.getId())
+  if (selectedOutFaceId == inFace.getId())
   {
-    NFD_LOG_INFO("selectedOutFace " << selectedOutFace->getId() << " == inFace " << inFace.getId() << " " << interest.getName());
-    // selectedOutFace = getAlternativeOutFace(selectedOutFace, nexthops);
+    NFD_LOG_INFO("selectedOutFaceId " << selectedOutFaceId << " == inFace " << inFace.getId() << " " << interest.getName());
+    selectedOutFaceId = getAlternativeOutFaceId(selectedOutFaceId, nexthops);
   }
 
   // After everthing else is handled, forward the Interest.
-  /*
-  * TODO: Find out why the simulator crashes at 4s with the error
-  * 'what():  Name component does not have the requested marker or the value is not a nonNegativeInteger'
-  * just because the face is handed over to sendInterest in another way?
-  */
-  // this->sendInterest(pitEntry, *outFace, interest); 
-  // this->sendInterest(pitEntry, nexthops[0].getFace(), interest);
   for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
     Face& outFace = it->getFace();
-    if (outFace.getId() == selectedOutFace->getId() && 
-      !wouldViolateScope(inFace, interest, outFace) && 
-      canForwardToLegacy(*pitEntry, outFace)) 
+    if (outFace.getId() == selectedOutFaceId) 
     {
       this->sendInterest(pitEntry, outFace, interest);
       return;
     }
   }
-
-  NFD_LOG_DEBUG("No apropriate face found.");
-
-  // NFD_LOG_INFO("Sent interest " << interest.getName() << " to " << outFace.getId());
-
-
-
-/*  if (outFace->getId() != currentBestOutFace->getId())
-  {
-    // Printing current measurement status to console. 
-    InterfaceEstimation& faceInfo1 = faceInfoTable[currentBestOutFace->getId()]; 
-    NFD_LOG_INFO("Face (W): "    << currentBestOutFace->getId() 
-                  << " - delay: "  << faceInfo1.getCurrentValue(RequirementType::DELAY)  
-                  << "ms, loss: " << faceInfo1.getCurrentValue(RequirementType::LOSS) * 100  
-                  << "%, bw: "    << faceInfo1.getCurrentValue(RequirementType::BANDWIDTH)); 
-
-    InterfaceEstimation& faceInfo2 = faceInfoTable[outFace->getId()]; 
-    NFD_LOG_INFO("Face (P): "    << outFace->getId() 
-                  << " - delay: "  << faceInfo2.getCurrentValue(RequirementType::DELAY)  
-                  << "ms, loss: " << faceInfo2.getCurrentValue(RequirementType::LOSS) * 100  
-                  << "%, bw: "    << faceInfo2.getCurrentValue(RequirementType::BANDWIDTH)); 
-    // std::cout << std::endl;
-  }*/
+  NFD_LOG_WARN("No apropriate face found.");
   return; 
 }
 
@@ -224,7 +193,7 @@ Face& LowestCostStrategy::lookForBetterOutFace( const fib::NextHopList& nexthops
   {
     NFD_LOG_INFO("Current face underperforms: Face " << currentWorkingFace.getId() << ", " << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
     // Find potential alternative and get its performance
-    Face& alternativeOutFace = getAlternativeOutFace(currentWorkingFace, nexthops);
+    Face& alternativeOutFace = getFaceViaId(getAlternativeOutFaceId(currentWorkingFace.getId(), nexthops), nexthops);
     double alternativeDelay = faceInfoTable[alternativeOutFace.getId()].getCurrentValue(RequirementType::DELAY); 
     double alternativeLoss = faceInfoTable[alternativeOutFace.getId()].getCurrentValue(RequirementType::LOSS); 
     double alternativeBandwidth = faceInfoTable[alternativeOutFace.getId()].getCurrentValue(RequirementType::BANDWIDTH);
@@ -237,12 +206,12 @@ Face& LowestCostStrategy::lookForBetterOutFace( const fib::NextHopList& nexthops
     }
     else 
     {
-      NFD_LOG_INFO("Taking next best alternative out of desperation: " << getAlternativeOutFace(alternativeOutFace, nexthops).getId() << " " << pitEntry->getInterest().getName());
+      NFD_LOG_INFO("Taking next best alternative out of desperation: " << getAlternativeOutFaceId(alternativeOutFace.getId(), nexthops) << " " << pitEntry->getInterest().getName());
       /* 
       * If alternative also underperforms, take the next best alternative and hope for the best 
       * (since there is no performance data available yet)
       */
-       if (canForwardToLegacy(*pitEntry, alternativeOutFace)) { return getAlternativeOutFace(alternativeOutFace, nexthops); }      
+       if (canForwardToLegacy(*pitEntry, alternativeOutFace)) { return getFaceViaId(getAlternativeOutFaceId(alternativeOutFace.getId(), nexthops), nexthops); }      
     }
   } 
   return currentWorkingFace;
@@ -270,8 +239,8 @@ Face& LowestCostStrategy::getFaceViaBestRoute( const fib::NextHopList& nexthops,
 }
 
 
-Face& LowestCostStrategy::getAlternativeOutFace( Face& outFace, 
-                                                            const fib::NextHopList& nexthops)
+FaceId LowestCostStrategy::getAlternativeOutFaceId(FaceId outFaceId, 
+                                                    const fib::NextHopList& nexthops)
 {
   if (nexthops.size() > 1)
   {
@@ -280,13 +249,26 @@ Face& LowestCostStrategy::getAlternativeOutFace( Face& outFace,
     while (iterations < 2) {
       for (auto n : nexthops) 
       { 
-        if (faceFound) {return n.getFace();} 
-        if (n.getFace().getId() == outFace.getId()) {faceFound = true;}
+        if (faceFound) {return n.getFace().getId();} 
+        if (n.getFace().getId() == outFaceId) {faceFound = true;}
       }
       iterations++;
     }
   }
-  return outFace;
+  return outFaceId;
+}
+
+Face& LowestCostStrategy::getFaceViaId( FaceId faceId, 
+                                        const fib::NextHopList& nexthops)
+{
+  for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
+    if (it->getFace().getId() == faceId)
+    {
+      return it->getFace();
+    }
+  }
+  NFD_LOG_WARN("Face was not found in nexthops. Returned face " << (int) nexthops[0].getFace().getId() << " instead.");
+  return nexthops[0].getFace();
 }
 
 void LowestCostStrategy::beforeSatisfyInterest( shared_ptr<pit::Entry> pitEntry, 
