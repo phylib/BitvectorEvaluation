@@ -53,8 +53,9 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // Check if prefix is unknown
   if (measurementInfo == nullptr) 
   {
+    NFD_LOG_DEBUG("measurementInfo == nullptr");
     // Create new prefix
-    // nfd::MeasurementsAccessor& ma = this->getMeasurements();
+    nfd::MeasurementsAccessor& ma = this->getMeasurements();
     // measurementInfo = StrategyHelper::addPrefixMeasurements(interest, ma);
     // measurementInfo->req.setParameter(RequirementType::DELAY, REQUIREMENT_MAXDELAY);
     // measurementInfo->req.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
@@ -72,7 +73,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   if (currentBestOutFaceId == 0) 
   {
     // NFD_LOG_DEBUG("currentBestOutFace == nullptr");
-    currentBestOutFaceId = getFaceViaBestRoute(nexthops, pitEntry).getId();
+    currentBestOutFaceId = getFaceIdViaBestRoute(nexthops, pitEntry);
   }
 
   // Create a pointer to the outface that this Interest will be forwarded to
@@ -82,7 +83,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
-    // currentBestOutFaceId = lookForBetterOutFace(nexthops, pitEntry, measurementInfo->req, currentBestOutFaceId);
+    // currentBestOutFaceId = lookForBetterOutFaceId(nexthops, pitEntry, measurementInfo->req, currentBestOutFaceId);
     selectedOutFaceId = currentBestOutFaceId;
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
@@ -145,68 +146,75 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 }
 
 
-Face& LowestCostStrategy::lookForBetterOutFace( const fib::NextHopList& nexthops,
-                                                    const shared_ptr<pit::Entry> pitEntry, 
-                                                    StrategyRequirements &requirements, 
-                                                    Face& currentWorkingFace)
+FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nexthops,
+                                                  const shared_ptr<pit::Entry> pitEntry, 
+                                                  StrategyRequirements &requirements, 
+                                                  FaceId currentWorkingFaceId)
 {
   // NFD_LOG_DEBUG("nexthops size: " << nexthops.size());
 
   // Check if there is only one available face anyway.
   if (nexthops.size() <= 2)
   {
-    NFD_LOG_INFO("nexthops.size() <= 2, return getFaceViaBestRoute() " << pitEntry->getInterest().getName());
-    return getFaceViaBestRoute(nexthops, pitEntry);
+    NFD_LOG_INFO("nexthops.size() <= 2, return getFaceIdViaBestRoute() " << pitEntry->getInterest().getName());
+    return getFaceIdViaBestRoute(nexthops, pitEntry);
   }
 
   // Check if no currently working face was found
-/*  if (currentWorkingFace == NULL) 
+/*  if (currentWorkingFaceId == 0) 
   {
-    NFD_LOG_INFO("currentWorkingFace == NULL, return getFaceViaBestRoute() " << pitEntry->getInterest().getName());
-    return getFaceViaBestRoute(nexthops, pitEntry);
+    NFD_LOG_INFO("currentWorkingFaceId == 0, return getFaceIdViaBestRoute() " << pitEntry->getInterest().getName());
+    return getFaceIdViaBestRoute(nexthops, pitEntry);
   }*/
 
   double delayLimit = requirements.getLimit(RequirementType::DELAY); 
   double lossLimit = requirements.getLimit(RequirementType::LOSS);
   double bandwidthLimit = requirements.getLimit(RequirementType::BANDWIDTH);
-  double currentDelay = faceInfoTable[currentWorkingFace.getId()].getCurrentValue(RequirementType::DELAY); 
-  double currentLoss = faceInfoTable[currentWorkingFace.getId()].getCurrentValue(RequirementType::LOSS); 
-  double currentBandwidth = faceInfoTable[currentWorkingFace.getId()].getCurrentValue(RequirementType::BANDWIDTH);
+  double currentDelay = faceInfoTable[currentWorkingFaceId].getCurrentValue(RequirementType::DELAY); 
+  double currentLoss = faceInfoTable[currentWorkingFaceId].getCurrentValue(RequirementType::LOSS); 
+  double currentBandwidth = faceInfoTable[currentWorkingFaceId].getCurrentValue(RequirementType::BANDWIDTH);
 
   // Check if current working path measurements are still uninitialised
   if (currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0)
   { 
-    NFD_LOG_INFO("currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0, return currentWorkingFace " << pitEntry->getInterest().getName());
-    return currentWorkingFace;
+    NFD_LOG_INFO("currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0, return currentWorkingFaceId " << pitEntry->getInterest().getName());
+    return currentWorkingFaceId;
   }
 
   // Check if current working path underperforms
   if (currentDelay > delayLimit || currentLoss > lossLimit || currentBandwidth < bandwidthLimit)
   {
-    NFD_LOG_INFO("Current face underperforms: Face " << currentWorkingFace.getId() << ", " << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
+    NFD_LOG_INFO("Current face underperforms: Face " << currentWorkingFaceId << ", " << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
     // Find potential alternative and get its performance
-    Face& alternativeOutFace = getFaceViaId(getAlternativeOutFaceId(currentWorkingFace.getId(), nexthops), nexthops);
-    double alternativeDelay = faceInfoTable[alternativeOutFace.getId()].getCurrentValue(RequirementType::DELAY); 
-    double alternativeLoss = faceInfoTable[alternativeOutFace.getId()].getCurrentValue(RequirementType::LOSS); 
-    double alternativeBandwidth = faceInfoTable[alternativeOutFace.getId()].getCurrentValue(RequirementType::BANDWIDTH);
+    FaceId alternativeOutFaceId = getAlternativeOutFaceId(currentWorkingFaceId, nexthops);
+    double alternativeDelay = faceInfoTable[alternativeOutFaceId].getCurrentValue(RequirementType::DELAY); 
+    double alternativeLoss = faceInfoTable[alternativeOutFaceId].getCurrentValue(RequirementType::LOSS); 
+    double alternativeBandwidth = faceInfoTable[alternativeOutFaceId].getCurrentValue(RequirementType::BANDWIDTH);
     
     // Check if alternative performs well enough
     if (alternativeDelay <= delayLimit && alternativeLoss <= lossLimit && alternativeBandwidth >= bandwidthLimit)
     {
-      NFD_LOG_INFO("Well performing alternative face found: " << alternativeOutFace.getId());
-      if (canForwardToLegacy(*pitEntry, alternativeOutFace)) { return alternativeOutFace; }
+      if (canForwardToLegacy(*pitEntry, getFaceViaId(alternativeOutFaceId, nexthops))) 
+      { 
+        NFD_LOG_INFO("Well performing alternative face found: " << alternativeOutFaceId);
+        return alternativeOutFaceId; 
+      }
     }
     else 
     {
-      NFD_LOG_INFO("Taking next best alternative out of desperation: " << getAlternativeOutFaceId(alternativeOutFace.getId(), nexthops) << " " << pitEntry->getInterest().getName());
       /* 
       * If alternative also underperforms, take the next best alternative and hope for the best 
       * (since there is no performance data available yet)
       */
-       if (canForwardToLegacy(*pitEntry, alternativeOutFace)) { return getFaceViaId(getAlternativeOutFaceId(alternativeOutFace.getId(), nexthops), nexthops); }      
+      if (canForwardToLegacy(*pitEntry, getFaceViaId(alternativeOutFaceId, nexthops))) 
+      { 
+        NFD_LOG_INFO("Taking next best alternative out of desperation: " << getAlternativeOutFaceId(alternativeOutFaceId, nexthops) << " " << pitEntry->getInterest().getName());
+        return getAlternativeOutFaceId(alternativeOutFaceId, nexthops); 
+      }      
     }
   } 
-  return currentWorkingFace;
+  NFD_LOG_INFO("No other valid face found. Returning current best face: " << currentWorkingFaceId);
+  return currentWorkingFaceId;
 }
 
 static inline bool
@@ -215,8 +223,8 @@ predicate_PitEntry_canForwardTo_NextHop(shared_ptr<pit::Entry> pitEntry, const f
   return canForwardToLegacy(*pitEntry, nexthop.getFace());
 }
 
-Face& LowestCostStrategy::getFaceViaBestRoute( const fib::NextHopList& nexthops, 
-                                                          const shared_ptr<pit::Entry> pitEntry)
+FaceId LowestCostStrategy::getFaceIdViaBestRoute( const fib::NextHopList& nexthops, 
+                                                const shared_ptr<pit::Entry> pitEntry)
 {
 /*  fib::NextHopList::const_iterator it = std::find_if(nexthops.begin(), nexthops.end(),
     bind(&predicate_PitEntry_canForwardTo_NextHop, pitEntry, _1));
@@ -227,7 +235,7 @@ Face& LowestCostStrategy::getFaceViaBestRoute( const fib::NextHopList& nexthops,
   }
 
   return shared_ptr<Face>(&it->getFace());*/
-  return nexthops[0].getFace();
+  return nexthops[0].getFace().getId();
 }
 
 
@@ -310,7 +318,7 @@ void LowestCostStrategy::beforeSatisfyInterest( shared_ptr<pit::Entry> pitEntry,
     {
       // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*
-      * Delay: Just dont calculate rtt, entries will drop out of the custom list by themeselves
+      * Delay: Just dont calculate rtt, entries will drop out of the custom list by themselves
       * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
       * Bandwith: Omit "addSatisfiedInterest"
       */ 
@@ -332,7 +340,7 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
 
       // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*
-      * Delay: Just dont calculate rtt, entries will drop out of the custom list by themeselves
+      * Delay: Just dont calculate rtt, entries will drop out of the custom list by themselves
       * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
       * Bandwith: Omit "addSatisfiedInterest"
       */ 

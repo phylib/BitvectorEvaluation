@@ -86,14 +86,14 @@ private:
   /**
    * Returns the face with the lowest cost that satisfies all requirements.
    */
-  Face& lookForBetterOutFace(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry,
-      StrategyRequirements &paramPtr, Face& currentWorkingFace);
+  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry,
+      StrategyRequirements &paramPtr, FaceId currentWorkingFaceId);
 
   /**
    * Returns a face by using the original BestRoute algorithm.
    * Returns NULL if no valid face can be found.
    */
-  Face& getFaceViaBestRoute(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry);
+  FaceId getFaceIdViaBestRoute(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry);
 
   /**
    * Searches the given NextHopList for a face with the given id.
