@@ -272,8 +272,9 @@ Face& LowestCostStrategy::getFaceViaId( FaceId faceId,
   return nexthops[0].getFace();
 }
 
-void LowestCostStrategy::beforeSatisfyInterest( shared_ptr<pit::Entry> pitEntry, 
-                                                const Face& inFace,
+
+void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pitEntry,
+                                                const Face& inFace, 
                                                 const Data& data)
 {
   NFD_LOG_DEBUG("Received data: " << data.getName());
