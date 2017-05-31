@@ -68,7 +68,7 @@ public:
   const uint              MIN_NUM_OF_FACES_FOR_PROBING  = 3;
   const int               MAX_TAINTED_PROBES_PERCENTAGE = 10; // Percentage of working path probes that may be redirected
   const double            REQUIREMENT_MAXDELAY          = 220.0; // Milliseconds
-  const double            REQUIREMENT_MAXLOSS           = 0.5; // Percentage
+  const double            REQUIREMENT_MAXLOSS           = 0.1; // Percentage
   const double            REQUIREMENT_MINBANDWIDTH      = 0.0; // TODO: find out what unit this is in (set to 0 for now).
   const double            HYSTERESIS_PERCENTAGE         = 0.00; // TODO: find out what this does (set to 0 for now). 
   const time::nanoseconds TIME_BETWEEN_PROBES           = time::milliseconds(2000); 

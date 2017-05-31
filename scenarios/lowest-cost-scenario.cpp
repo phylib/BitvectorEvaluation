@@ -132,36 +132,16 @@ main(int argc, char* argv[])
   // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::UpLink, 
   //   Names::Find<Node>("Cons2"), Names::Find<Node>("NodeA"));
 
-  // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
-  // Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
+  Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::FailLink, 
+    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
+  Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::FailLink, 
+    Names::Find<Node>("NodeE"), Names::Find<Node>("NodeH"));
 
+    Simulator::Schedule(Seconds(26.0), ndn::LinkControlHelper::UpLink, 
+    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
 
-  // Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeA"), Names::Find<Node>("NodeD"));
-  // Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeC"), Names::Find<Node>("DelayNode"));
-  // Simulator::Schedule(Seconds(40.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeC"), Names::Find<Node>("Prod2"));
-  // Simulator::Schedule(Seconds(50.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeE"), Names::Find<Node>("Prod1"));
-  // Simulator::Schedule(Seconds(60.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeF"), Names::Find<Node>("Prod1"));
-
-  // Simulator::Schedule(Seconds(70.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeA"), Names::Find<Node>("DelayNode"));
-  // Simulator::Schedule(Seconds(80.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeB"), Names::Find<Node>("DelayNode"));
-  // Simulator::Schedule(Seconds(90.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeC"), Names::Find<Node>("DelayNode"));
-  // Simulator::Schedule(Seconds(100.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeC"), Names::Find<Node>("Prod2"));
-  // Simulator::Schedule(Seconds(110.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeE"), Names::Find<Node>("Prod1"));
-  // Simulator::Schedule(Seconds(120.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeF"), Names::Find<Node>("Prod1"));
-
+  Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::FailLink, 
+    Names::Find<Node>("NodeF"), Names::Find<Node>("NodeI"));
 
   Simulator::Stop(Seconds(60.0));
 

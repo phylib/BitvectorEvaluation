@@ -56,7 +56,6 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // Check if currentBestOutFaceId is still uninitialised
   if (currentBestOutFaceId == 0) 
   {
-    // NFD_LOG_DEBUG("currentBestOutFace == nullptr");
     currentBestOutFaceId = getFaceIdViaBestRoute(nexthops, pitEntry);
   }
 
@@ -86,7 +85,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           // TODO: check if the conversion back to const is working/necessiary
           // Interest& interest = const_cast<const Interest&>(nonConstInterest); 
 
-          // NFD_LOG_DEBUG("Tainted this interest: " << interest.getName());
+          NFD_LOG_INFO("Tainted this interest: " << interest.getName());
 
           // Remember that this probe was tainted by this router, so the corresponding data can be recognized
           myTaintedProbes.insert(interest.getName().toUri());
@@ -99,7 +98,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           nackHeader.setReason(lp::NackReason::TAINTED);
           this->sendNack(pitEntry, inFace, nackHeader);
 
-          // NFD_LOG_DEBUG("Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << " with reason " << nackHeader.getReason());
+          NFD_LOG_INFO("Send NACK for interest: " << interest.getName() << " on face " << inFace.getId() << " with reason " << nackHeader.getReason());
 
           // Manually re-insert an in-record for the pit entry, so the Interest can still be sent.
           // NOTE: const_cast is a hack and should generally be avoided!
@@ -107,8 +106,8 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           pitEntry->insertOrUpdateInRecord(nonConstInFace, interest);
         }
       }
-      // Save the probe's sending time in a map for later calculations of rtt. This is a workaround  
-      // since "outRecord->getLastRenewed()" somehow doesn't provide the right value. 
+      // Save the probe's sending time in a map for later calculations of rtt. 
+      // This is a workaround since "outRecord->getLastRenewed()" somehow doesn't provide the right value. 
       rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
 
       // Inform the original estimators (by Klaus Schneider) about the probe
@@ -129,12 +128,12 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // Printing current measurement status to console. 
   InterfaceEstimation& faceInfo1 = faceInfoTable[currentBestOutFaceId];
   NFD_LOG_INFO("Interest " << interest.getName() << " forwarded on face " << selectedOutFaceId); 
-  NFD_LOG_INFO("Face (W): "    << currentBestOutFaceId 
+  NFD_LOG_INFO("Face (working path): "    << currentBestOutFaceId 
                 << " - delay: "  << faceInfo1.getCurrentValue(RequirementType::DELAY)  
                 << "ms, loss: " << faceInfo1.getCurrentValue(RequirementType::LOSS) * 100  
                 << "%, bw: "    << faceInfo1.getCurrentValue(RequirementType::BANDWIDTH)); 
   InterfaceEstimation& faceInfo2 = faceInfoTable[selectedOutFaceId]; 
-  NFD_LOG_INFO("Face (P): "    << selectedOutFaceId
+  NFD_LOG_INFO("Face (alternative path): "    << selectedOutFaceId
                 << " - delay: "  << faceInfo2.getCurrentValue(RequirementType::DELAY)  
                 << "ms, loss: " << faceInfo2.getCurrentValue(RequirementType::LOSS) * 100  
                 << "%, bw: "    << faceInfo2.getCurrentValue(RequirementType::BANDWIDTH)); 
@@ -159,14 +158,6 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
     NFD_LOG_INFO("nexthops.size() <= 2, return getFaceIdViaBestRoute() " << pitEntry->getInterest().getName());
     return getFaceIdViaBestRoute(nexthops, pitEntry);
   }
-
-  // Check if no currently working face was found
-/*  if (currentWorkingFaceId == 0) 
-  {
-    NFD_LOG_INFO("currentWorkingFaceId == 0, return getFaceIdViaBestRoute() " << pitEntry->getInterest().getName());
-    return getFaceIdViaBestRoute(nexthops, pitEntry);
-  }*/
-
   double delayLimit = requirements.getLimit(RequirementType::DELAY); 
   double lossLimit = requirements.getLimit(RequirementType::LOSS);
   double bandwidthLimit = requirements.getLimit(RequirementType::BANDWIDTH);
@@ -225,17 +216,9 @@ predicate_PitEntry_canForwardTo_NextHop(shared_ptr<pit::Entry> pitEntry, const f
 }
 
 FaceId LowestCostStrategy::getFaceIdViaBestRoute( const fib::NextHopList& nexthops, 
-                                                const shared_ptr<pit::Entry> pitEntry)
+                                                  const shared_ptr<pit::Entry> pitEntry)
 {
-/*  fib::NextHopList::const_iterator it = std::find_if(nexthops.begin(), nexthops.end(),
-    bind(&predicate_PitEntry_canForwardTo_NextHop, pitEntry, _1));
-
-  if (it == nexthops.end()) {
-    // this->rejectPendingInterest(pitEntry);
-    return nullptr;
-  }
-
-  return shared_ptr<Face>(&it->getFace());*/
+  // TODO: implement real best-route algorithm.
   return nexthops[0].getFace().getId();
 }
 
@@ -293,6 +276,7 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
       {
         // Forget about the corresponding tainted probe (since it is satisfied now)
         myTaintedProbes.erase(myTaintedProbesIterator);
+        NFD_LOG_INFO("Removed " << data.getName() << "from myTaintedProbes.");
 
         // TODO: Find a way to stop the data packet from being forwarded any further.
       }
@@ -318,13 +302,10 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
     }    
     else 
     {
-      // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*
-      * Delay: Just dont calculate rtt, entries will drop out of the custom list by themselves
-      * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
-      * Bandwith: Omit "addSatisfiedInterest"
-      */ 
-      faceInfoTable[inFace.getId()].removeSentInterest(data.getName().toUri());
+      * TODO: Find a way to determine if this router is before or after the "tainter", since it could theoretically 
+      *       use tainted probes for measurement as long as it is a router after the tainter.
+      */
     }
 
 
@@ -347,8 +328,11 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
       * Bandwith: Omit "addSatisfiedInterest"
       */ 
       faceInfoTable[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
-  }
+      NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
 
+      // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
+      this->sendNack(pitEntry, pitEntry->getInRecords().begin()->getFace(), nack.getHeader());
+  }
 }
 
 }  // namespace fw
