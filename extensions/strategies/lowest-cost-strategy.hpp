@@ -119,6 +119,9 @@ private:
 
   // A pointer to the currently best outface on which the PIs should be forwarded 
   FaceId currentBestOutFaceId;
+
+  // An object which can hold all the hard limits required for this strategy.
+  StrategyRequirements stratReq;
 };
 
 }  // namespace fw

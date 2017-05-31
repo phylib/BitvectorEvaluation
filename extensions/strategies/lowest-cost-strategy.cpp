@@ -34,34 +34,18 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
  :  Strategy(forwarder, name), 
     ownStrategyChoice(forwarder.getStrategyChoice()),
     priorityType(RequirementType::DELAY),
-    currentBestOutFaceId(0)
+    currentBestOutFaceId(0),
+    stratReq()
 {
+  stratReq.setParameter(RequirementType::DELAY, REQUIREMENT_MAXDELAY);
+  stratReq.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
+  stratReq.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
 }
 
 void LowestCostStrategy::afterReceiveInterest(const Face& inFace, 
                                               const Interest& interest,
                                               const shared_ptr<pit::Entry>& pitEntry)
 {
-
-  // NFD_LOG_INFO("Incoming interest: " << interest.getName());
-
-  Name currentPrefix;
-  shared_ptr < MeasurementInfo > measurementInfo;
-  nfd::MeasurementsAccessor& ma = this->getMeasurements();
-  std::tie(currentPrefix, measurementInfo) = StrategyHelper::findPrefixMeasurements(interest, ma);
-
-  // Check if prefix is unknown
-  if (measurementInfo == nullptr) 
-  {
-    NFD_LOG_DEBUG("measurementInfo == nullptr");
-    // Create new prefix
-    nfd::MeasurementsAccessor& ma = this->getMeasurements();
-    // measurementInfo = StrategyHelper::addPrefixMeasurements(interest, ma);
-    // measurementInfo->req.setParameter(RequirementType::DELAY, REQUIREMENT_MAXDELAY);
-    // measurementInfo->req.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
-    // measurementInfo->req.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
-  }
-
   /**
   * Fetch and prepare the fibEntry (needed since switch to ndnSIM 2.3, 
   * where fibentry is no longer provided out of the box by "afterReceiveInterest")
@@ -83,7 +67,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
-    // currentBestOutFaceId = lookForBetterOutFaceId(nexthops, pitEntry, measurementInfo->req, currentBestOutFaceId);
+    currentBestOutFaceId = lookForBetterOutFaceId(nexthops, pitEntry, stratReq, currentBestOutFaceId);
     selectedOutFaceId = currentBestOutFaceId;
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
@@ -121,7 +105,6 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           // NOTE: const_cast is a hack and should generally be avoided!
           Face& nonConstInFace = const_cast<Face&> (inFace);
           pitEntry->insertOrUpdateInRecord(nonConstInFace, interest);
-
         }
       }
       // Save the probe's sending time in a map for later calculations of rtt. This is a workaround  
@@ -142,6 +125,23 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 
   // After everthing else is handled, forward the Interest on the selected face.
   this->sendInterest(pitEntry, getFaceViaId(selectedOutFaceId, nexthops), interest);
+
+  // Printing current measurement status to console. 
+  InterfaceEstimation& faceInfo1 = faceInfoTable[currentBestOutFaceId];
+  NFD_LOG_INFO("Interest " << interest.getName() << " forwarded on face " << selectedOutFaceId); 
+  NFD_LOG_INFO("Face (W): "    << currentBestOutFaceId 
+                << " - delay: "  << faceInfo1.getCurrentValue(RequirementType::DELAY)  
+                << "ms, loss: " << faceInfo1.getCurrentValue(RequirementType::LOSS) * 100  
+                << "%, bw: "    << faceInfo1.getCurrentValue(RequirementType::BANDWIDTH)); 
+  InterfaceEstimation& faceInfo2 = faceInfoTable[selectedOutFaceId]; 
+  NFD_LOG_INFO("Face (P): "    << selectedOutFaceId
+                << " - delay: "  << faceInfo2.getCurrentValue(RequirementType::DELAY)  
+                << "ms, loss: " << faceInfo2.getCurrentValue(RequirementType::LOSS) * 100  
+                << "%, bw: "    << faceInfo2.getCurrentValue(RequirementType::BANDWIDTH)); 
+  // std::cout << std::endl;
+
+
+
   return;
 }
 
@@ -177,7 +177,8 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
   // Check if current working path measurements are still uninitialised
   if (currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0)
   { 
-    NFD_LOG_INFO("currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0, return currentWorkingFaceId " << pitEntry->getInterest().getName());
+    NFD_LOG_INFO ("measurements uninitialised.");
+    // NFD_LOG_INFO("currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0, return currentWorkingFaceId " << pitEntry->getInterest().getName());
     return currentWorkingFaceId;
   }
 
@@ -336,7 +337,7 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
 {
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
-    // NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
+    NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
 
       // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*
