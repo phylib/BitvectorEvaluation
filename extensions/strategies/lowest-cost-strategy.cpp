@@ -32,14 +32,8 @@ NFD_REGISTER_STRATEGY(LowestCostStrategy);
 
 LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
  :  Strategy(forwarder, name), 
-    ownStrategyChoice(forwarder.getStrategyChoice()),
-    priorityType(RequirementType::DELAY),
-    currentBestOutFaceId(0),
-    stratReq()
+    ownStrategyChoice(forwarder.getStrategyChoice())
 {
-  stratReq.setParameter(RequirementType::DELAY, REQUIREMENT_MAXDELAY);
-  stratReq.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
-  stratReq.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
 }
 
 void LowestCostStrategy::afterReceiveInterest(const Face& inFace, 
@@ -53,21 +47,30 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
   const fib::NextHopList& nexthops = fibEntry.getNextHops();
 
-  // Check if currentBestOutFaceId is still uninitialised
-  if (currentBestOutFaceId == 0) 
+  // Get the current prefix from the interest name
+  std::string currentPrefix = interest.getName().getPrefix(PREFIX_OFFSET).toUri();
+
+  // Check if there is no entry yet for the current prefix
+  if (measurementMap.find(currentPrefix) == measurementMap.end())
   {
-    currentBestOutFaceId = getFaceIdViaBestRoute(nexthops, pitEntry);
+    // Create a new MeasurementInfo and place it in the measurementMap under the currentPrefix. 
+    MeasurementInfo mi;
+    mi.req.setParameter(RequirementType::DELAY, REQUIREMENT_MAXDELAY);
+    mi.req.setParameter(RequirementType::LOSS, REQUIREMENT_MAXLOSS);
+    mi.req.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
+    mi.currentWorkingFaceId = getFaceIdViaBestRoute(nexthops, pitEntry);
+    measurementMap[currentPrefix] = mi;
   }
 
   // Create a pointer to the outface that this Interest will be forwarded to
-  FaceId selectedOutFaceId = currentBestOutFaceId;
+  FaceId selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
 
   // Check if packet is a probe (push Interests should not be redirected)
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
-    currentBestOutFaceId = lookForBetterOutFaceId(nexthops, pitEntry, stratReq, currentBestOutFaceId);
-    selectedOutFaceId = currentBestOutFaceId;
+    measurementMap[currentPrefix].currentWorkingFaceId = lookForBetterOutFaceId(nexthops, pitEntry, currentPrefix);
+    selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
@@ -88,10 +91,10 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           NFD_LOG_INFO("Tainted this interest: " << interest.getName());
 
           // Remember that this probe was tainted by this router, so the corresponding data can be recognized
-          myTaintedProbes.insert(interest.getName().toUri());
+          measurementMap[currentPrefix].myTaintedProbes.insert(interest.getName().toUri());
 
           // Prepare an alternative path for the probe 
-          selectedOutFaceId = getAlternativeOutFaceId(currentBestOutFaceId, nexthops);   
+          selectedOutFaceId = getAlternativeOutFaceId(measurementMap[currentPrefix].currentWorkingFaceId, nexthops);   
 
           // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
           lp::NackHeader nackHeader;
@@ -108,10 +111,10 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       }
       // Save the probe's sending time in a map for later calculations of rtt. 
       // This is a workaround since "outRecord->getLastRenewed()" somehow doesn't provide the right value. 
-      rttTimeTable[interest.getName().toUri()] = time::steady_clock::now(); 
+      measurementMap[currentPrefix].rttTimeMap[interest.getName().toUri()] = time::steady_clock::now(); 
 
       // Inform the original estimators (by Klaus Schneider) about the probe
-      faceInfoTable[selectedOutFaceId].addSentInterest(interest.getName().toUri()); 
+      measurementMap[currentPrefix].faceInfoMap[selectedOutFaceId].addSentInterest(interest.getName().toUri()); 
     }
   } 
 
@@ -126,13 +129,13 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   this->sendInterest(pitEntry, getFaceViaId(selectedOutFaceId, nexthops), interest);
 
   // Printing current measurement status to console. 
-  InterfaceEstimation& faceInfo1 = faceInfoTable[currentBestOutFaceId];
+  InterfaceEstimation& faceInfo1 = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId];
   NFD_LOG_INFO("Interest " << interest.getName() << " forwarded on face " << selectedOutFaceId); 
-  NFD_LOG_INFO("Face (working path): "    << currentBestOutFaceId 
+  NFD_LOG_INFO("Face (working path): "    << measurementMap[currentPrefix].currentWorkingFaceId 
                 << " - delay: "  << faceInfo1.getCurrentValue(RequirementType::DELAY)  
                 << "ms, loss: " << faceInfo1.getCurrentValue(RequirementType::LOSS) * 100  
                 << "%, bw: "    << faceInfo1.getCurrentValue(RequirementType::BANDWIDTH)); 
-  InterfaceEstimation& faceInfo2 = faceInfoTable[selectedOutFaceId]; 
+  InterfaceEstimation& faceInfo2 = measurementMap[currentPrefix].faceInfoMap[selectedOutFaceId]; 
   NFD_LOG_INFO("Face (alternative path): "    << selectedOutFaceId
                 << " - delay: "  << faceInfo2.getCurrentValue(RequirementType::DELAY)  
                 << "ms, loss: " << faceInfo2.getCurrentValue(RequirementType::LOSS) * 100  
@@ -146,9 +149,8 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 
 
 FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nexthops,
-                                                  const shared_ptr<pit::Entry> pitEntry, 
-                                                  StrategyRequirements &requirements, 
-                                                  FaceId currentWorkingFaceId)
+                                                  const shared_ptr<pit::Entry> pitEntry,
+                                                  std::string currentPrefix)
 {
   // NFD_LOG_DEBUG("nexthops size: " << nexthops.size());
 
@@ -158,30 +160,30 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
     NFD_LOG_INFO("nexthops.size() <= 2, return getFaceIdViaBestRoute() " << pitEntry->getInterest().getName());
     return getFaceIdViaBestRoute(nexthops, pitEntry);
   }
-  double delayLimit = requirements.getLimit(RequirementType::DELAY); 
-  double lossLimit = requirements.getLimit(RequirementType::LOSS);
-  double bandwidthLimit = requirements.getLimit(RequirementType::BANDWIDTH);
-  double currentDelay = faceInfoTable[currentWorkingFaceId].getCurrentValue(RequirementType::DELAY); 
-  double currentLoss = faceInfoTable[currentWorkingFaceId].getCurrentValue(RequirementType::LOSS); 
-  double currentBandwidth = faceInfoTable[currentWorkingFaceId].getCurrentValue(RequirementType::BANDWIDTH);
+  double delayLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::DELAY); 
+  double lossLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::LOSS);
+  double bandwidthLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::BANDWIDTH);
+  double currentDelay = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId].getCurrentValue(RequirementType::DELAY); 
+  double currentLoss = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId].getCurrentValue(RequirementType::LOSS); 
+  double currentBandwidth = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId].getCurrentValue(RequirementType::BANDWIDTH);
 
   // Check if current working path measurements are still uninitialised
   if (currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0)
   { 
     NFD_LOG_INFO ("measurements uninitialised.");
     // NFD_LOG_INFO("currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0, return currentWorkingFaceId " << pitEntry->getInterest().getName());
-    return currentWorkingFaceId;
+    return measurementMap[currentPrefix].currentWorkingFaceId;
   }
 
   // Check if current working path underperforms
   if (currentDelay > delayLimit || currentLoss > lossLimit || currentBandwidth < bandwidthLimit)
   {
-    NFD_LOG_INFO("Current face underperforms: Face " << currentWorkingFaceId << ", " << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
+    NFD_LOG_INFO("Current face underperforms: Face " << measurementMap[currentPrefix].currentWorkingFaceId << ", " << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
     // Find potential alternative and get its performance
-    FaceId alternativeOutFaceId = getAlternativeOutFaceId(currentWorkingFaceId, nexthops);
-    double alternativeDelay = faceInfoTable[alternativeOutFaceId].getCurrentValue(RequirementType::DELAY); 
-    double alternativeLoss = faceInfoTable[alternativeOutFaceId].getCurrentValue(RequirementType::LOSS); 
-    double alternativeBandwidth = faceInfoTable[alternativeOutFaceId].getCurrentValue(RequirementType::BANDWIDTH);
+    FaceId alternativeOutFaceId = getAlternativeOutFaceId(measurementMap[currentPrefix].currentWorkingFaceId, nexthops);
+    double alternativeDelay = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::DELAY); 
+    double alternativeLoss = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::LOSS); 
+    double alternativeBandwidth = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::BANDWIDTH);
     
     // Check if alternative performs well enough
     if (alternativeDelay <= delayLimit && alternativeLoss <= lossLimit && alternativeBandwidth >= bandwidthLimit)
@@ -205,8 +207,8 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
       }      
     }
   } 
-  NFD_LOG_INFO("No other valid face found. Returning current best face: " << currentWorkingFaceId);
-  return currentWorkingFaceId;
+  NFD_LOG_INFO("No other valid face found. Returning current best face: " << measurementMap[currentPrefix].currentWorkingFaceId);
+  return measurementMap[currentPrefix].currentWorkingFaceId;
 }
 
 static inline bool
@@ -262,12 +264,14 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
 {
   NFD_LOG_DEBUG("Received data: " << data.getName());
 
+  std::string currentPrefix = data.getName().getPrefix(PREFIX_OFFSET).toUri();
+
   // Check if incoming data is probe data
   if (data.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Check if it's an answer to one of the probes tainted by this router
-    auto myTaintedProbesIterator = myTaintedProbes.find(data.getName().toUri());
-    bool taintedByThisRouter = (myTaintedProbesIterator != myTaintedProbes.end()) ? true : false;
+    auto myTaintedProbesIterator = measurementMap[currentPrefix].myTaintedProbes.find(data.getName().toUri());
+    bool taintedByThisRouter = (myTaintedProbesIterator != measurementMap[currentPrefix].myTaintedProbes.end()) ? true : false;
 
     // Check if usable for measurement (tainted by this router or not tainted at all)
     if (taintedByThisRouter || !data.isTainted())
@@ -275,13 +279,13 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
       if (taintedByThisRouter)
       {
         // Forget about the corresponding tainted probe (since it is satisfied now)
-        myTaintedProbes.erase(myTaintedProbesIterator);
+        measurementMap[currentPrefix].myTaintedProbes.erase(myTaintedProbesIterator);
         NFD_LOG_INFO("Removed " << data.getName() << "from myTaintedProbes.");
 
         // TODO: Find a way to stop the data packet from being forwarded any further.
       }
       // Inform loss estimator
-      InterfaceEstimation& faceInfo = faceInfoTable[inFace.getId()];
+      InterfaceEstimation& faceInfo = measurementMap[currentPrefix].faceInfoMap[inFace.getId()];
       faceInfo.addSatisfiedInterest(data.getContent().value_size(), data.getName().toUri());
       pit::OutRecordCollection::const_iterator outRecord = pitEntry->getOutRecord(inFace);
 
@@ -289,14 +293,14 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
       if (!pitEntry->getInRecords().empty() && outRecord != pitEntry->getOutRecords().end()) 
       {
         // There is an in and outrecord --> inform RTT estimator
-        time::steady_clock::Duration rtt = time::steady_clock::now() - rttTimeTable[data.getName().toUri()];
+        time::steady_clock::Duration rtt = time::steady_clock::now() - measurementMap[currentPrefix].rttTimeMap[data.getName().toUri()];
         faceInfo.addRttMeasurement(time::duration_cast < time::microseconds > (rtt));
-        rttTimeTable.erase(data.getName().toUri()); 
+        measurementMap[currentPrefix].rttTimeMap.erase(data.getName().toUri()); 
 
-        // Delete every entry in rttTimeTable that is older than a certain threshold.
-        for ( auto it = rttTimeTable.begin(); it != rttTimeTable.end();) 
+        // Delete every entry in rttTimeMap that is older than a certain threshold.
+        for ( auto it = measurementMap[currentPrefix].rttTimeMap.begin(); it != measurementMap[currentPrefix].rttTimeMap.end();) 
         {
-          (time::steady_clock::now()-it->second > RTT_TIME_TABLE_MAX_DURATION) ? it=rttTimeTable.erase(it) : it++ ;
+          (time::steady_clock::now()-it->second > RTT_TIME_TABLE_MAX_DURATION) ? it=measurementMap[currentPrefix].rttTimeMap.erase(it) : it++ ;
         } 
       }   
     }    
@@ -317,6 +321,9 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
                                       const lp::Nack& nack, 
                                       const shared_ptr<pit::Entry>& pitEntry) 
 {
+  // Get measurementInfo for current prefix.
+  std::string currentPrefix = pitEntry->getInterest().getName().getPrefix(PREFIX_OFFSET).toUri();
+
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
     NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
@@ -327,7 +334,7 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
       * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
       * Bandwith: Omit "addSatisfiedInterest"
       */ 
-      faceInfoTable[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
+      measurementMap[currentPrefix].faceInfoMap[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
       NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
 
       // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 

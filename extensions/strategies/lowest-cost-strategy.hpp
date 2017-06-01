@@ -64,6 +64,7 @@ public:
 
   static const Name       STRATEGY_NAME;
   const std::string       PROBE_SUFFIX                  = "/probe";
+  const int               PREFIX_OFFSET                 = 1; // number of name components which are considered as prefix
   const bool              PROBING_ENABLED               = true;
   const uint              MIN_NUM_OF_FACES_FOR_PROBING  = 3;
   const int               MAX_TAINTED_PROBES_PERCENTAGE = 10; // Percentage of working path probes that may be redirected
@@ -86,8 +87,7 @@ private:
   /**
    * Returns the face with the lowest cost that satisfies all requirements.
    */
-  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry,
-      StrategyRequirements &paramPtr, FaceId currentWorkingFaceId);
+  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry, std::string currentPrefix);
 
   /**
    * Returns a face by using the original BestRoute algorithm.
@@ -102,26 +102,23 @@ private:
   Face& getFaceViaId(FaceId faceId , const fib::NextHopList& nexthops);
 
 private:
-  scheduler::EventId probeTimer;
+  scheduler::EventId probeTimer; // TODO find out if this is even used anywhere?
 
-  StrategyHelper helper;
+  StrategyHelper helper; // TODO can be deleted after implementing own probingDue() solution
   std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;
   StrategyChoice& ownStrategyChoice;
 
-  // The type to use when not all requirements can be met. Defaults to "DELAY"
-  RequirementType priorityType;
-
   // A map where timestamps of sent Interests are saved for RTT measurement.
-  std::unordered_map<std::string, time::steady_clock::TimePoint> rttTimeTable;
+  // std::unordered_map<std::string, time::steady_clock::TimePoint> rttTimeTable;
 
   // A set containing the names of all the probes that have been redirected (and therefore been tainted) by this router.
-  std::set<std::string> myTaintedProbes;
-
-  // A pointer to the currently best outface on which the PIs should be forwarded 
-  FaceId currentBestOutFaceId;
+  // std::set<std::string> myTaintedProbes;
 
   // An object which can hold all the hard limits required for this strategy.
-  StrategyRequirements stratReq;
+  // StrategyRequirements stratReq;
+
+  // A list containing one MeasurementInfo object for each prefix this strategy is currently dealing with.
+  std::unordered_map<std::string, MeasurementInfo> measurementMap;
 };
 
 }  // namespace fw
