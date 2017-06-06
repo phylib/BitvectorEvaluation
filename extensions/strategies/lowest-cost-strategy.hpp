@@ -35,7 +35,7 @@
 namespace nfd {
 namespace fw {
 
-/** \brief Lowest Cost Strategy version 1
+/** \brief Lowest Cost Strategy
  *
  * Sends out interest packets on the face that satisfies all requirements.
  *
@@ -62,19 +62,17 @@ public:
 
 public:
 
-  static const Name       STRATEGY_NAME;
-  const std::string       PROBE_SUFFIX                  = "/probe";
-  const int               PREFIX_OFFSET                 = 1; // number of name components which are considered as prefix
-  const bool              PROBING_ENABLED               = true;
-  const uint              MIN_NUM_OF_FACES_FOR_PROBING  = 3;
-  const int               MAX_TAINTED_PROBES_PERCENTAGE = 10; // Percentage of working path probes that may be redirected
-  const double            REQUIREMENT_MAXDELAY          = 220.0; // Milliseconds
-  const double            REQUIREMENT_MAXLOSS           = 0.1; // Percentage
-  const double            REQUIREMENT_MINBANDWIDTH      = 0.0; // TODO: find out what unit this is in (set to 0 for now).
-  const double            HYSTERESIS_PERCENTAGE         = 0.00; // TODO: find out what this does (set to 0 for now). 
-  const time::nanoseconds TIME_BETWEEN_PROBES           = time::milliseconds(2000); 
-  const time::nanoseconds RTT_TIME_TABLE_MAX_DURATION   = time::milliseconds(1000);
-  
+  static const Name STRATEGY_NAME;
+  std::string PROBE_SUFFIX;
+  int PREFIX_OFFSET;
+  bool TAINTING_ENABLED;
+  uint MIN_NUM_OF_FACES_FOR_TAINTING;
+  int MAX_TAINTED_PROBES_PERCENTAGE;
+  double REQUIREMENT_MAXDELAY;
+  double REQUIREMENT_MAXLOSS;
+  double REQUIREMENT_MINBANDWIDTH;
+  double HYSTERESIS_PERCENTAGE;
+  time::nanoseconds RTT_TIME_TABLE_MAX_DURATION; 
 
 private:
 
@@ -102,20 +100,9 @@ private:
   Face& getFaceViaId(FaceId faceId , const fib::NextHopList& nexthops);
 
 private:
-  scheduler::EventId probeTimer; // TODO find out if this is even used anywhere?
-
   StrategyHelper helper; // TODO can be deleted after implementing own probingDue() solution
   std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;
   StrategyChoice& ownStrategyChoice;
-
-  // A map where timestamps of sent Interests are saved for RTT measurement.
-  // std::unordered_map<std::string, time::steady_clock::TimePoint> rttTimeTable;
-
-  // A set containing the names of all the probes that have been redirected (and therefore been tainted) by this router.
-  // std::set<std::string> myTaintedProbes;
-
-  // An object which can hold all the hard limits required for this strategy.
-  // StrategyRequirements stratReq;
 
   // A list containing one MeasurementInfo object for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;

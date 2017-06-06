@@ -5,8 +5,8 @@ ParameterConfiguration* ParameterConfiguration::instance = NULL;
 ParameterConfiguration::ParameterConfiguration()
 {
   setParameter("PREFIX_OFFSET", P_PREFIX_OFFSET);
-  setParameter("PROBING_ENABLED", P_PROBING_ENABLED);
-  setParameter("MIN_NUM_OF_FACES_FOR_PROBING", P_MIN_NUM_OF_FACES_FOR_PROBING);
+  setParameter("TAINTING_ENABLED", P_TAINTING_ENABLED);
+  setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", P_MIN_NUM_OF_FACES_FOR_TAINTING);
   setParameter("MAX_TAINTED_PROBES_PERCENTAGE", P_MAX_TAINTED_PROBES_PERCENTAGE);
   setParameter("REQUIREMENT_MAXDELAY", P_REQUIREMENT_MAXDELAY);
   setParameter("REQUIREMENT_MAXLOSS", P_REQUIREMENT_MAXLOSS);

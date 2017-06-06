@@ -20,8 +20,8 @@ main(int argc, char* argv[])
   ParameterConfiguration::getInstance()->APP_SUFFIX = "/app";
   ParameterConfiguration::getInstance()->PROBE_SUFFIX = "/probe";
   ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 1);
-  ParameterConfiguration::getInstance()->setParameter("PROBING_ENABLED", 1);
-  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_PROBING", 3);
+  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3);
   ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10);
   ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0);
   ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1);

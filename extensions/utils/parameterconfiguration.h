@@ -24,12 +24,12 @@
 
 //default parameters that can be overriden:
 #define P_PREFIX_OFFSET                 1      // number of name components which are considered as prefix
-#define P_PROBING_ENABLED               1      // specifies if probes will be forwarded or not; 1=true, 0=false; 
-#define P_MIN_NUM_OF_FACES_FOR_PROBING  3      // the minimum number of faces a node must have to redirect probes
+#define P_TAINTING_ENABLED              1      // specifies if probes will be forwarded or not; 1=true, 0=false; 
+#define P_MIN_NUM_OF_FACES_FOR_TAINTING 3      // the minimum number of faces a node must have to redirect probes
 #define P_MAX_TAINTED_PROBES_PERCENTAGE 10     // percentage of working path probes that may be redirected
 #define P_REQUIREMENT_MAXDELAY          200.0  // maximum tolerated delay in milliseconds
 #define P_REQUIREMENT_MAXLOSS           0.1    // maximum tolerated loss in percentage
-#define P_REQUIREMENT_MINBANDWIDTH      0.0    // minimum tolerated bandwith TODO: find out what unit this is in (set to 0 for now)
+#define P_REQUIREMENT_MINBANDWIDTH      0.0    // minimum tolerated bandwith in Kbps
 #define P_RTT_TIME_TABLE_MAX_DURATION   1000   // maximum time (in milliseconds) an entry is kept in the rttMap before being erased
 
 /**

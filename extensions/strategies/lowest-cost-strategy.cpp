@@ -35,6 +35,17 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
  :  Strategy(forwarder, name), 
     ownStrategyChoice(forwarder.getStrategyChoice())
 {
+  //Setting parametes with values from ParameterConfiguration;
+  PROBE_SUFFIX = ParameterConfiguration::getInstance()->PROBE_SUFFIX;
+  PREFIX_OFFSET = ParameterConfiguration::getInstance()->getParameter("PREFIX_OFFSET");
+  TAINTING_ENABLED = ParameterConfiguration::getInstance()->getParameter("TAINTING_ENABLED");
+  MIN_NUM_OF_FACES_FOR_TAINTING = ParameterConfiguration::getInstance()->getParameter("MIN_NUM_OF_FACES_FOR_TAINTING");
+  MAX_TAINTED_PROBES_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("MAX_TAINTED_PROBES_PERCENTAGE");
+  REQUIREMENT_MAXDELAY = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXDELAY");
+  REQUIREMENT_MAXLOSS = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXLOSS");
+  REQUIREMENT_MINBANDWIDTH = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MINBANDWIDTH");
+  HYSTERESIS_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("HYSTERESIS_PERCENTAGE");
+  RTT_TIME_TABLE_MAX_DURATION = time::milliseconds((int)ParameterConfiguration::getInstance()->getParameter("RTT_TIME_TABLE_MAX_DURATION"));
 }
 
 void LowestCostStrategy::afterReceiveInterest(const Face& inFace, 
@@ -61,16 +72,6 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     mi.req.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
     mi.currentWorkingFaceId = getFaceIdViaBestRoute(nexthops, pitEntry);
     measurementMap[currentPrefix] = mi;
-
-    // std::cout << "PREFIX_OFFSET: " << ParameterConfiguration::getInstance()->getParameter("PREFIX_OFFSET") << std::endl;
-    // std::cout << "PROBING_ENABLED: " << ParameterConfiguration::getInstance()->getParameter("PROBING_ENABLED") << std::endl;
-    // std::cout << "MIN_NUM_OF_FACES_FOR_PROBING: " << ParameterConfiguration::getInstance()->getParameter("MIN_NUM_OF_FACES_FOR_PROBING") << std::endl;
-    // std::cout << "MAX_TAINTED_PROBES_PERCENTAGE: " << ParameterConfiguration::getInstance()->getParameter("MAX_TAINTED_PROBES_PERCENTAGE") << std::endl;
-    // std::cout << "REQUIREMENT_MAXDELAY: " << ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXDELAY") << std::endl;
-    // std::cout << "REQUIREMENT_MAXLOSS: " << ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXLOSS") << std::endl;
-    // std::cout << "REQUIREMENT_MINBANDWIDTH: " << ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MINBANDWIDTH") << std::endl;
-    // std::cout << "RTT_TIME_TABLE_MAX_DURATION: " << ParameterConfiguration::getInstance()->getParameter("RTT_TIME_TABLE_MAX_DURATION") << std::endl;
-
   }
 
   // Create a pointer to the outface that this Interest will be forwarded to
@@ -86,11 +87,11 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
     {
-      // Check if there is more than one outFace (no need to probe if no alternatives available)
-      if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_PROBING)
+      // Check if there is more than one outFace (no need to taint if no alternatives available)
+      if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_TAINTING)
       {
         // Check if this router is allowed to use some probes for monitoring alternative routes 
-        if (helper.probingDue() && PROBING_ENABLED) //TODO: write own solution for probingDue()?
+        if (helper.probingDue() && TAINTING_ENABLED) //TODO: write own solution for probingDue()?
         {
           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
           // NOTE: const_cast is a hack and should generally be avoided!
