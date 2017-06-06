@@ -3,13 +3,9 @@
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/ndnSIM-module.h"
-
-// for custom forwarding strategy
-#include "../extensions/strategies/lowest-cost-strategy.hpp"
-//#include "/home/julian/persistent-interests/pi-scenario/extensions/strategies/random-load-balancer-strategy.hpp"
-
-// for LinkStatusControl::FailLinks and LinkStatusControl::UpLinks
 #include "ns3/ndnSIM/helper/ndn-link-control-helper.hpp"
+#include "../extensions/utils/parameterconfiguration.h"
+#include "../extensions/strategies/lowest-cost-strategy.hpp"
 
 using ns3::ndn::StrategyChoiceHelper;
 
@@ -21,14 +17,25 @@ main(int argc, char* argv[])
   CommandLine cmd;
   cmd.Parse(argc, argv);
 
+  ParameterConfiguration::getInstance()->APP_SUFFIX = "/app";
+  ParameterConfiguration::getInstance()->PROBE_SUFFIX = "/probe";
+  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 1);
+  ParameterConfiguration::getInstance()->setParameter("PROBING_ENABLED", 1);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_PROBING", 3);
+  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", 0.0);
+  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", 1000);
+
   AnnotatedTopologyReader topologyReader("", 25);
   topologyReader.SetFileName("scenarios/topologies/lowest-cost-topology.txt");
   topologyReader.Read();
 
   // Defining prefix
   std::string prefix1 = "/dst1";
-  std::string prefix1App = prefix1 + "/app";
-  std::string prefix1Probe = prefix1 + "/probe";
+  std::string prefix1App = prefix1 + ParameterConfiguration::getInstance()->APP_SUFFIX;
+  std::string prefix1Probe = prefix1 + ParameterConfiguration::getInstance()->PROBE_SUFFIX;
   std::string prefix2 = "/dst2";
 
   // Install NDN stack on all nodes
@@ -58,14 +65,13 @@ main(int argc, char* argv[])
 
   // Choosing a forwarding strategy
   std::string strategy = "lowest-cost";
-  std::string params = ""; // Empty for now, since most parameters are set in the strategy's header file.
 
 /*  ndn::StrategyChoiceHelper::Install(Names::Find<Node>("End1"), prefix1,
     "/localhost/nfd/strategy/" + strategy + "/%FD%01/" + params);*/
 /*  ndn::StrategyChoiceHelper::Install(NodeContainer::GetGlobal(), prefix1,
     "/localhost/nfd/strategy/" + strategy + "/%FD%01/" + params);*/
   ndn::StrategyChoiceHelper::Install(nodesWithNewStrat, prefix1,
-    "/localhost/nfd/strategy/" + strategy + "/%FD%01/" + params);
+    "/localhost/nfd/strategy/" + strategy + "/%FD%01/");
 
   // Set Custom Strategy
   // StrategyChoiceHelper::Install<nfd::fw::PiForwardingStrategy>(Names::Find<Node>("End1"),prefix1App);

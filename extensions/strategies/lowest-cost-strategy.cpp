@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Softwarestd::string params = "maxdelay=100";
+ * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Klaus Schneider <klaus.schneider@uni-bamberg.de>
@@ -21,6 +21,7 @@
 #include "core/logger.hpp"
 #include "fw/measurement-info.hpp"
 #include "fw/algorithm.hpp"
+#include "../utils/parameterconfiguration.h"
 
 namespace nfd {
 namespace fw {
@@ -60,6 +61,16 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     mi.req.setParameter(RequirementType::BANDWIDTH, REQUIREMENT_MINBANDWIDTH);
     mi.currentWorkingFaceId = getFaceIdViaBestRoute(nexthops, pitEntry);
     measurementMap[currentPrefix] = mi;
+
+    // std::cout << "PREFIX_OFFSET: " << ParameterConfiguration::getInstance()->getParameter("PREFIX_OFFSET") << std::endl;
+    // std::cout << "PROBING_ENABLED: " << ParameterConfiguration::getInstance()->getParameter("PROBING_ENABLED") << std::endl;
+    // std::cout << "MIN_NUM_OF_FACES_FOR_PROBING: " << ParameterConfiguration::getInstance()->getParameter("MIN_NUM_OF_FACES_FOR_PROBING") << std::endl;
+    // std::cout << "MAX_TAINTED_PROBES_PERCENTAGE: " << ParameterConfiguration::getInstance()->getParameter("MAX_TAINTED_PROBES_PERCENTAGE") << std::endl;
+    // std::cout << "REQUIREMENT_MAXDELAY: " << ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXDELAY") << std::endl;
+    // std::cout << "REQUIREMENT_MAXLOSS: " << ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXLOSS") << std::endl;
+    // std::cout << "REQUIREMENT_MINBANDWIDTH: " << ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MINBANDWIDTH") << std::endl;
+    // std::cout << "RTT_TIME_TABLE_MAX_DURATION: " << ParameterConfiguration::getInstance()->getParameter("RTT_TIME_TABLE_MAX_DURATION") << std::endl;
+
   }
 
   // Create a pointer to the outface that this Interest will be forwarded to
@@ -337,7 +348,7 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
       measurementMap[currentPrefix].faceInfoMap[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
       NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
 
-      // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
+      // Forward NACK further back to the previous routers so they don't keep measurement data of the tainted Interest either.
       this->sendNack(pitEntry, pitEntry->getInRecords().begin()->getFace(), nack.getHeader());
   }
 }
