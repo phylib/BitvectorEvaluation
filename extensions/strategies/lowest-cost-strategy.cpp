@@ -233,7 +233,14 @@ predicate_PitEntry_canForwardTo_NextHop(shared_ptr<pit::Entry> pitEntry, const f
 FaceId LowestCostStrategy::getFaceIdViaBestRoute( const fib::NextHopList& nexthops, 
                                                   const shared_ptr<pit::Entry> pitEntry)
 {
-  // TODO: implement real best-route algorithm.
+  // Copied and adjusted from the bestRoute algorithm
+  for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
+    if (canForwardToLegacy(*pitEntry, it->getFace())) {
+      return it->getFace().getId();
+    }
+  }
+
+  // If everything else fails, just use the first face.
   return nexthops[0].getFace().getId();
 }
 
