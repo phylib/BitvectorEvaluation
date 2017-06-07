@@ -33,7 +33,8 @@ NFD_REGISTER_STRATEGY(LowestCostStrategy);
 
 LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
  :  Strategy(forwarder, name), 
-    ownStrategyChoice(forwarder.getStrategyChoice())
+    ownStrategyChoice(forwarder.getStrategyChoice()),
+    probingCounter(1)
 {
   //Setting parametes with values from ParameterConfiguration;
   PROBE_SUFFIX = ParameterConfiguration::getInstance()->PROBE_SUFFIX;
@@ -91,7 +92,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_TAINTING)
       {
         // Check if this router is allowed to use some probes for monitoring alternative routes 
-        if (helper.probingDue() && TAINTING_ENABLED) //TODO: write own solution for probingDue()?
+        if (taintingAllowed() && TAINTING_ENABLED)
         {
           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
           // NOTE: const_cast is a hack and should generally be avoided!
@@ -267,6 +268,18 @@ Face& LowestCostStrategy::getFaceViaId( FaceId faceId,
   }
   NFD_LOG_WARN("Face " << (int)faceId << " was not found in nexthops. Returned face " << (int) nexthops[0].getFace().getId() << " instead.");
   return nexthops[0].getFace();
+}
+
+bool LowestCostStrategy::taintingAllowed()
+{
+  if (probingCounter >= MAX_TAINTED_PROBES_PERCENTAGE) {
+    probingCounter = 1;
+    return true;
+  }
+  else {
+    probingCounter++;
+    return false;
+  }
 }
 
 

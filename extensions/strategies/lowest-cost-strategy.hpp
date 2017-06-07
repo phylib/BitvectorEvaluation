@@ -99,10 +99,16 @@ private:
    */
   Face& getFaceViaId(FaceId faceId , const fib::NextHopList& nexthops);
 
+  /**
+   * A simple helper function which helps to regulate tainting decisions.
+   * Returns true every n-th call, where n is the percentage specified in MAX_TAINTED_PROBES_PERCENTAGE.
+   */
+  bool taintingAllowed();
+
 private:
-  StrategyHelper helper; // TODO can be deleted after implementing own probingDue() solution
   std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;
   StrategyChoice& ownStrategyChoice;
+  int probingCounter; // Simple counter used in taintingAllowed().
 
   // A list containing one MeasurementInfo object for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;
