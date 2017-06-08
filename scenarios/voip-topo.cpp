@@ -219,9 +219,9 @@ main(int argc, char* argv[])
   pushCallerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
   pushCallerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
 
-  ns3::ndn::AppHelper voipProducerHelper ("ns3::ndn::VoIPProducer"); // Callee for prerequest and standard approach
-  voipProducerHelper.SetAttribute ("PayloadSize", StringValue("82"));
-  voipProducerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice 
+  // ns3::ndn::AppHelper voipProducerHelper ("ns3::ndn::VoIPProducer"); // Callee for prerequest and standard approach
+  // voipProducerHelper.SetAttribute ("PayloadSize", StringValue("82"));
+  // voipProducerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice 
 
   ndn::AppHelper probeProducerHelper("ns3::ndn::ProbeDataProducer");
   probeProducerHelper.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
@@ -285,8 +285,8 @@ main(int argc, char* argv[])
       } else {
 
         // Install producer on caller-side
-        voipProducerHelper.SetPrefix(callerPrefix);
-        voipProducerHelper.Install(caller);
+        // voipProducerHelper.SetPrefix(callerPrefix);
+        // voipProducerHelper.Install(caller);
         // Install consumer on caller-side
         callerHelper.SetPrefix(calleePrefix);
         ApplicationContainer consumer = callerHelper.Install (caller);
@@ -294,8 +294,8 @@ main(int argc, char* argv[])
         consumer.Stop(MilliSeconds(end));
 
         // Install producer on callee-side
-        voipProducerHelper.SetPrefix(calleePrefix);
-        voipProducerHelper.Install(callee);
+        // voipProducerHelper.SetPrefix(calleePrefix);
+        // voipProducerHelper.Install(callee);
         // Install consumer on callee-side
         callerHelper.SetPrefix(callerPrefix);
         consumer = callerHelper.Install (callee);
