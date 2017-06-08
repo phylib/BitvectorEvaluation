@@ -37,6 +37,8 @@ main(int argc, char* argv[])
   std::string prefix1App = prefix1 + ParameterConfiguration::getInstance()->APP_SUFFIX;
   std::string prefix1Probe = prefix1 + ParameterConfiguration::getInstance()->PROBE_SUFFIX;
   std::string prefix2 = "/dst2";
+  std::string prefix2App = prefix2 + ParameterConfiguration::getInstance()->APP_SUFFIX;
+  std::string prefix2Probe = prefix2 + ParameterConfiguration::getInstance()->PROBE_SUFFIX;
 
   // Install NDN stack on all nodes
   ndn::StackHelper ndnHelper;
@@ -49,6 +51,7 @@ main(int argc, char* argv[])
  
   NodeContainer nodesWithNewStrat;
   nodesWithNewStrat.Add(Names::Find<Node>("Cons1"));
+  nodesWithNewStrat.Add(Names::Find<Node>("Cons2"));
   nodesWithNewStrat.Add(Names::Find<Node>("End1"));
   nodesWithNewStrat.Add(Names::Find<Node>("NodeA"));
   nodesWithNewStrat.Add(Names::Find<Node>("NodeB"));
@@ -60,7 +63,8 @@ main(int argc, char* argv[])
   nodesWithNewStrat.Add(Names::Find<Node>("NodeH"));
   nodesWithNewStrat.Add(Names::Find<Node>("NodeI"));
   nodesWithNewStrat.Add(Names::Find<Node>("End2"));
-  // nodesWithNewStrat.Add(Names::Find<Node>("Prod1")); // TODO find solution so this can be enabled too.
+  nodesWithNewStrat.Add(Names::Find<Node>("Prod1")); // TODO find solution so this can be enabled too.
+  nodesWithNewStrat.Add(Names::Find<Node>("Prod2")); // TODO find solution so this can be enabled too.
 
 
   // Choosing a forwarding strategy
@@ -71,6 +75,8 @@ main(int argc, char* argv[])
 /*  ndn::StrategyChoiceHelper::Install(NodeContainer::GetGlobal(), prefix1,
     "/localhost/nfd/strategy/" + strategy + "/%FD%01/" + params);*/
   ndn::StrategyChoiceHelper::Install(nodesWithNewStrat, prefix1,
+    "/localhost/nfd/strategy/" + strategy + "/%FD%01/");
+  ndn::StrategyChoiceHelper::Install(nodesWithNewStrat, prefix2,
     "/localhost/nfd/strategy/" + strategy + "/%FD%01/");
 
   // Set Custom Strategy
@@ -86,10 +92,9 @@ main(int argc, char* argv[])
 
   // Getting containers for the consumer/producer
   Ptr<Node> consumer1 = Names::Find<Node>("Cons1");
-  Ptr<Node> consumer2 = Names::Find<Node>("Cons2");
   Ptr<Node> producer1 = Names::Find<Node>("Prod1");
+  Ptr<Node> consumer2 = Names::Find<Node>("Cons2");
   Ptr<Node> producer2 = Names::Find<Node>("Prod2");
-  Ptr<Node> producer1Probe = Names::Find<Node>("Prod1");
 
   // Consumer1
   ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
@@ -98,12 +103,6 @@ main(int argc, char* argv[])
   consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
   consumerHelper.SetPrefix(prefix1App);
   consumerHelper.Install(consumer1); 
-
-  // Consumer2
-  ndn::AppHelper consumerTestHelper("ns3::ndn::ConsumerCbr");
-  consumerTestHelper.SetAttribute("Frequency", StringValue("1")); 
-  consumerTestHelper.SetPrefix(prefix2);
-  consumerTestHelper.Install(consumer2); 
 
   // Producer1
   ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer");
@@ -118,37 +117,49 @@ main(int argc, char* argv[])
   ProbeProducerHelper.SetPrefix(prefix1Probe);
   ProbeProducerHelper.Install(producer1);
 
+  // Consumer2
+  ndn::AppHelper consumerTestHelper("ns3::ndn::PushConsumer");
+  consumerTestHelper.SetAttribute("PIRefreshInterval", StringValue("4")); // 1 interests every 4 seconds
+  consumerTestHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  consumerTestHelper.SetAttribute("LifeTime", StringValue("5s"));
+  consumerTestHelper.SetPrefix(prefix2App);
+  consumerTestHelper.Install(consumer2); 
+
   // Producer2 
-  ndn::AppHelper TrafficProducerHelper("ns3::ndn::Producer");
-  TrafficProducerHelper.SetAttribute("PayloadSize", StringValue("1024")); //bytes per packet
-  TrafficProducerHelper.SetPrefix(prefix2);
+  ndn::AppHelper TrafficProducerHelper("ns3::ndn::PushProducer");
+  TrafficProducerHelper.SetAttribute("Frequency", StringValue("50")); // One packet every 0.02 Seconds
+  TrafficProducerHelper.SetAttribute("PayloadSize", StringValue("1000")); // 64kbps * 0.02sec + 58byte Packet-Overhead
+  TrafficProducerHelper.SetPrefix(prefix2App);
   TrafficProducerHelper.Install(producer2);
+
+  // Producer2 (Probes)
+  ndn::AppHelper ProbeProducerHelper2("ns3::ndn::ProbeDataProducer");
+  ProbeProducerHelper2.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
+  ProbeProducerHelper2.SetPrefix(prefix2Probe);
+  ProbeProducerHelper2.Install(producer2);
 
   // Add /prefix origins to ndn::GlobalRouter
   ndnGlobalRoutingHelper.AddOrigins(prefix1App, producer1);
   ndnGlobalRoutingHelper.AddOrigins(prefix1Probe, producer1);
-  ndnGlobalRoutingHelper.AddOrigins(prefix2, producer2);
-
+  ndnGlobalRoutingHelper.AddOrigins(prefix2App, producer2);
+  ndnGlobalRoutingHelper.AddOrigins(prefix2Probe, producer2);
 
   // Calculate and install FIBs
   ndn::GlobalRoutingHelper::CalculateAllPossibleRoutes();
 
-  Simulator::Schedule(Seconds(0.0), ndn::LinkControlHelper::FailLink, 
-    Names::Find<Node>("Cons2"), Names::Find<Node>("NodeA"));
-  // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::UpLink, 
+  // Simulator::Schedule(Seconds(0.0), ndn::LinkControlHelper::FailLink, 
   //   Names::Find<Node>("Cons2"), Names::Find<Node>("NodeA"));
+  // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::UpLink, 
+    // Names::Find<Node>("Cons2"), Names::Find<Node>("NodeA"));
 
   Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::FailLink, 
     Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
   Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::FailLink, 
     Names::Find<Node>("NodeE"), Names::Find<Node>("NodeH"));
-
-    Simulator::Schedule(Seconds(26.0), ndn::LinkControlHelper::UpLink, 
+  Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
     Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
-
   Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::FailLink, 
     Names::Find<Node>("NodeF"), Names::Find<Node>("NodeI"));
-
   Simulator::Stop(Seconds(60.0));
 
   // Tracer
