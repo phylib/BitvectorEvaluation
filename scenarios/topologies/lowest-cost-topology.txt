@@ -10,9 +10,9 @@ router
 # each line in this section represents one router and should have the following data
 # node  		comment     yPos    xPos
 
-Cons1   		NA          3       1
+Cons1   		NA          3.5     1
+Prod2   		NA          2.5     1
 End1 			NA          3       2
-Cons2   		NA          4	    2.1
 
 NodeA			NA          4       2.9
 NodeB			NA          3       3
@@ -24,9 +24,9 @@ NodeG			NA          4       4.9
 NodeH			NA          3     	5
 NodeI			NA          2	    5.1
 
-Prod2  			NA          2       5.9
 End2			NA          3       6
-Prod1  			NA          3       7
+Cons2  			NA          3.5     7
+Prod1  			NA          2.5     7
 
 
 
@@ -43,7 +43,7 @@ link
 
 # srcNode   		dstNode     	bandwidth   metric  delay   queue
 Cons1       		End1       		1Mbps       1       10ms    10
-Cons2       		NodeA      		1Mbps       1       10ms    10
+Prod2       		End1      		1Mbps       1       10ms    10
 End1       			NodeA       	1Mbps       1       10ms    10
 End1       			NodeB       	1Mbps       1       10ms    10
 End1       			NodeC       	1Mbps       1       10ms    10
@@ -63,9 +63,9 @@ NodeG       		NodeH			1Mbps       1       10ms    10
 NodeH       		End2			1Mbps       1       10ms    10
 NodeH       		NodeI			1Mbps       1       10ms    10
 NodeI       		End2			1Mbps       1       10ms    10
-NodeI       		Prod2			1Mbps       1       10ms    10
 # if delay betwen DelayNode and End2 is close to 1000ms the DelayNode somehow doesn't forward data packets back anymore.
 End2  				Prod1    		1Mbps       1       10ms    10
+End2  				Cons2    		1Mbps       1       10ms    10
 
 
 
