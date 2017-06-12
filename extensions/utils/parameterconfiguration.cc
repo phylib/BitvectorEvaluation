@@ -15,14 +15,14 @@ ParameterConfiguration::ParameterConfiguration()
 }
 
 
-void ParameterConfiguration::setParameter(std::string para_name, double value)
+void ParameterConfiguration::setParameter(std::string prefix, std::string param_name, double value)
 {
-  pmap[para_name] = value;
+  prefixMap[prefix][param_name] = value;
 }
 
-double ParameterConfiguration::getParameter(std::string para_name)
+double ParameterConfiguration::getParameter(std::string prefix, std::string param_name)
 {
-  return pmap[para_name];
+  return prefixMap[prefix][param_name];
 }
 
 ParameterConfiguration *ParameterConfiguration::getInstance()

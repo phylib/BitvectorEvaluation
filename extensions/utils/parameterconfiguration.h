@@ -40,8 +40,8 @@ class ParameterConfiguration
 {
 public:
   //string parameters:
-  std::string PROBE_SUFFIX = "/probe";
   std::string APP_SUFFIX = "/app";
+  std::string PROBE_SUFFIX = "/probe";
 
 
   /**
@@ -55,14 +55,14 @@ public:
    * @param param_name the name of the parameter.
    * @param value the value of the parameter.
    */
-  void setParameter(std::string param_name, double value);
+  void setParameter(std::string prefix, std::string param_name, double value);
 
   /**
    * @brief gets a parameter.
    * @param para_name the name of the parameter.
    * @return
    */
-  double getParameter(std::string para_name);
+  double getParameter(std::string prefix, std::string param_name);
 
 protected:  
   ParameterConfiguration();
@@ -75,6 +75,7 @@ protected:
   > typedef ParameterMap;
 
   ParameterMap pmap;
+  std::map<std::string, ParameterMap> prefixMap;
 
 
 };
