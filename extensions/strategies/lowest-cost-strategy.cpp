@@ -53,6 +53,8 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
                                               const Interest& interest,
                                               const shared_ptr<pit::Entry>& pitEntry)
 {
+  NFD_LOG_DEBUG("Íncoming Interest: " << interest.getName());
+
   /**
   * Fetch and prepare the fibEntry (needed since switch to ndnSIM 2.3, 
   * where fibentry is no longer provided out of the box by "afterReceiveInterest")
@@ -140,6 +142,8 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 
   // After everthing else is handled, forward the Interest on the selected face.
   this->sendInterest(pitEntry, getFaceViaId(selectedOutFaceId, nexthops), interest);
+
+  NFD_LOG_DEBUG("Sending Interest " << interest.getName() << " on face " << selectedOutFaceId);
 
   // Printing current measurement status to console. 
   InterfaceEstimation& faceInfo1 = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId];
@@ -353,12 +357,14 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
                                       const lp::Nack& nack, 
                                       const shared_ptr<pit::Entry>& pitEntry) 
 {
+  NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason = " << nack.getReason());
+
   // Get measurementInfo for current prefix.
   std::string currentPrefix = pitEntry->getInterest().getName().getPrefix(PREFIX_OFFSET).toUri();
 
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
-    NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
+    // NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
 
       // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*
