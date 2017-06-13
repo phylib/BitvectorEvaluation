@@ -17,26 +17,39 @@ main(int argc, char* argv[])
   CommandLine cmd;
   cmd.Parse(argc, argv);
 
+  // Defining main prefixes
+  std::string prefix1 = "/dst1";
+  std::string prefix2 = "/dst2";
+
+  // Set shared parameters
   ParameterConfiguration::getInstance()->APP_SUFFIX = "/app";
   ParameterConfiguration::getInstance()->PROBE_SUFFIX = "/probe";
-  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 1);
-  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1);
-  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3);
-  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", 0.0);
-  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", 1000);
+  ParameterConfiguration::getInstance()->PREFIX_OFFSET = 1; // TODO: calculate this number dynamically by counting the number of "/" in the main prefix.
+
+  // Set per-prefix parameters
+  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1, prefix1);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3, prefix1);
+  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10, prefix1);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0, prefix1);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1, prefix1);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", 0.0, prefix1);
+  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", 1000, prefix1);
+
+  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1, prefix2);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3, prefix2);
+  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10, prefix2);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0, prefix2);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1, prefix2);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", 0.0, prefix2);
+  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", 1000, prefix2);
 
   AnnotatedTopologyReader topologyReader("", 25);
   topologyReader.SetFileName("scenarios/topologies/lowest-cost-topology.txt");
   topologyReader.Read();
 
-  // Defining prefix
-  std::string prefix1 = "/dst1";
+  // Defining combined prefixes
   std::string prefix1App = prefix1 + ParameterConfiguration::getInstance()->APP_SUFFIX;
   std::string prefix1Probe = prefix1 + ParameterConfiguration::getInstance()->PROBE_SUFFIX;
-  std::string prefix2 = "/dst2";
   std::string prefix2App = prefix2 + ParameterConfiguration::getInstance()->APP_SUFFIX;
   std::string prefix2Probe = prefix2 + ParameterConfiguration::getInstance()->PROBE_SUFFIX;
 

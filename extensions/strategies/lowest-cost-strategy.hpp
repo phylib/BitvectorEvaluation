@@ -101,6 +101,11 @@ private:
    */
   bool taintingAllowed();
 
+  /**
+   * Makes sure all parameters are set according to the values specified in ParameterConfiguration.
+   */
+  void refreshParameters(std::string currentPrefix) ;
+
 private:
   std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;
   StrategyChoice& ownStrategyChoice;

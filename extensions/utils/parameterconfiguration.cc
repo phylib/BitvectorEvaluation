@@ -4,7 +4,6 @@ ParameterConfiguration* ParameterConfiguration::instance = NULL;
 
 ParameterConfiguration::ParameterConfiguration()
 {
-  setParameter("PREFIX_OFFSET", P_PREFIX_OFFSET);
   setParameter("TAINTING_ENABLED", P_TAINTING_ENABLED);
   setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", P_MIN_NUM_OF_FACES_FOR_TAINTING);
   setParameter("MAX_TAINTED_PROBES_PERCENTAGE", P_MAX_TAINTED_PROBES_PERCENTAGE);
@@ -15,12 +14,12 @@ ParameterConfiguration::ParameterConfiguration()
 }
 
 
-void ParameterConfiguration::setParameter(std::string prefix, std::string param_name, double value)
+void ParameterConfiguration::setParameter(std::string param_name, double value, std::string prefix)
 {
   prefixMap[prefix][param_name] = value;
 }
 
-double ParameterConfiguration::getParameter(std::string prefix, std::string param_name)
+double ParameterConfiguration::getParameter(std::string param_name, std::string prefix)
 {
   return prefixMap[prefix][param_name];
 }
