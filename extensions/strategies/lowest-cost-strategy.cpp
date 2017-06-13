@@ -34,7 +34,7 @@ NFD_REGISTER_STRATEGY(LowestCostStrategy);
 LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
  :  Strategy(forwarder, name), 
     ownStrategyChoice(forwarder.getStrategyChoice()),
-    probingCounter(1)
+    taintingCounter(1)
 {
   // Setting shared parameters
   PROBE_SUFFIX = ParameterConfiguration::getInstance()->PROBE_SUFFIX;
@@ -278,12 +278,12 @@ Face& LowestCostStrategy::getFaceViaId( FaceId faceId,
 
 bool LowestCostStrategy::taintingAllowed()
 {
-  if (probingCounter >= MAX_TAINTED_PROBES_PERCENTAGE) {
-    probingCounter = 1;
+  if (taintingCounter >= MAX_TAINTED_PROBES_PERCENTAGE) {
+    taintingCounter = 1;
     return true;
   }
   else {
-    probingCounter++;
+    taintingCounter++;
     return false;
   }
 }

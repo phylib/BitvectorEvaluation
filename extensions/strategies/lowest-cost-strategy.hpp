@@ -37,7 +37,13 @@ namespace fw {
 
 /** \brief Lowest Cost Strategy
  *
- * TODO: Write proper description
+ * This strategy uses probing to assess the quality of the current working path and one alternative path.
+ * If the quality of the working path crosses a threshold (maxldelay, maxloss and minbandwith) all future interests
+ * are sent on the alternative path. The alternative then becomes the working path and a new alternative is searched for.
+ * 
+ * Alternative routes are found by using the algorithm from the bestroute_1 strategy (taking the first valid entry in nexthops).
+ * In the case that neither working path nor alternative meet the requirements, the next best face (other than those two)
+ * is selected.
  *
  */
 class LowestCostStrategy : public Strategy
@@ -109,7 +115,7 @@ private:
 private:
   std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;
   StrategyChoice& ownStrategyChoice;
-  int probingCounter; // Simple counter used in taintingAllowed().
+  int taintingCounter; // Simple counter used in taintingAllowed().
 
   // A list containing one MeasurementInfo object for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;
