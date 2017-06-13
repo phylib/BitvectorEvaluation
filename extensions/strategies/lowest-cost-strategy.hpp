@@ -37,12 +37,8 @@ namespace fw {
 
 /** \brief Lowest Cost Strategy
  *
- * Sends out interest packets on the face that satisfies all requirements.
+ * TODO: Write proper description
  *
- * Current parameters:
- * \param maxloss double of loss percentage (between 0 and 1)
- * \param maxdelay double maximal round trip delay in milliseconds
- * \parm  minbw  minimal bandwidth in Kbps
  */
 class LowestCostStrategy : public Strategy
 {
@@ -104,6 +100,11 @@ private:
    * Returns true every n-th call, where n is the percentage specified in MAX_TAINTED_PROBES_PERCENTAGE.
    */
   bool taintingAllowed();
+
+  /**
+   * Makes sure all parameters are set according to the values specified in ParameterConfiguration.
+   */
+  void refreshParameters(std::string currentPrefix) ;
 
 private:
   std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;

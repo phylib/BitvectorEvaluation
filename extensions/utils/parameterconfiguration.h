@@ -22,8 +22,7 @@
 #include <map>
 #include <string>
 
-//default parameters that can be overriden:
-#define P_PREFIX_OFFSET                 1      // number of name components which are considered as prefix
+//per-prefix parameters that can be overriden:
 #define P_TAINTING_ENABLED              1      // specifies if probes will be forwarded or not; 1=true, 0=false; 
 #define P_MIN_NUM_OF_FACES_FOR_TAINTING 3      // the minimum number of faces a node must have to redirect probes
 #define P_MAX_TAINTED_PROBES_PERCENTAGE 10     // percentage of working path probes that may be redirected
@@ -39,9 +38,10 @@
 class ParameterConfiguration
 {
 public:
-  //string parameters:
-  std::string PROBE_SUFFIX = "/probe";
+  //shared parameters (not per-prefix):
   std::string APP_SUFFIX = "/app";
+  std::string PROBE_SUFFIX = "/probe";
+  int PREFIX_OFFSET = 1; // number of name components which are considered as prefix
 
 
   /**
@@ -54,15 +54,17 @@ public:
    * @brief sets a parameter
    * @param param_name the name of the parameter.
    * @param value the value of the parameter.
+   * @param (optional) prefix the parameter should be set for
    */
-  void setParameter(std::string param_name, double value);
+  void setParameter(std::string param_name, double value, std::string prefix = "/");
 
   /**
    * @brief gets a parameter.
    * @param para_name the name of the parameter.
+   * @param (optional) prefix the parameter should fetched from
    * @return
    */
-  double getParameter(std::string para_name);
+  double getParameter(std::string param_name, std::string prefix = "/");
 
 protected:  
   ParameterConfiguration();
@@ -75,6 +77,7 @@ protected:
   > typedef ParameterMap;
 
   ParameterMap pmap;
+  std::map<std::string, ParameterMap> prefixMap;
 
 
 };

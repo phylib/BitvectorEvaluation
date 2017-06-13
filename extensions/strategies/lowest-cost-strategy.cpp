@@ -36,17 +36,9 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
     ownStrategyChoice(forwarder.getStrategyChoice()),
     probingCounter(1)
 {
-  //Setting parametes with values from ParameterConfiguration;
+  // Setting shared parameters
   PROBE_SUFFIX = ParameterConfiguration::getInstance()->PROBE_SUFFIX;
-  PREFIX_OFFSET = ParameterConfiguration::getInstance()->getParameter("PREFIX_OFFSET");
-  TAINTING_ENABLED = ParameterConfiguration::getInstance()->getParameter("TAINTING_ENABLED");
-  MIN_NUM_OF_FACES_FOR_TAINTING = ParameterConfiguration::getInstance()->getParameter("MIN_NUM_OF_FACES_FOR_TAINTING");
-  MAX_TAINTED_PROBES_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("MAX_TAINTED_PROBES_PERCENTAGE");
-  REQUIREMENT_MAXDELAY = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXDELAY");
-  REQUIREMENT_MAXLOSS = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXLOSS");
-  REQUIREMENT_MINBANDWIDTH = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MINBANDWIDTH");
-  HYSTERESIS_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("HYSTERESIS_PERCENTAGE");
-  RTT_TIME_TABLE_MAX_DURATION = time::milliseconds((int)ParameterConfiguration::getInstance()->getParameter("RTT_TIME_TABLE_MAX_DURATION"));
+  PREFIX_OFFSET = ParameterConfiguration::getInstance()->PREFIX_OFFSET;
 }
 
 void LowestCostStrategy::afterReceiveInterest(const Face& inFace, 
@@ -64,6 +56,9 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 
   // Get the current prefix from the interest name
   std::string currentPrefix = interest.getName().getPrefix(PREFIX_OFFSET).toUri();
+
+  // Set per-prefix parameters
+  refreshParameters(currentPrefix);
 
   // Check if there is no entry yet for the current prefix
   if (measurementMap.find(currentPrefix) == measurementMap.end())
@@ -293,6 +288,19 @@ bool LowestCostStrategy::taintingAllowed()
   }
 }
 
+void LowestCostStrategy::refreshParameters(std::string currentPrefix) 
+{
+  //Setting parametes with values from ParameterConfiguration;
+  TAINTING_ENABLED = ParameterConfiguration::getInstance()->getParameter("TAINTING_ENABLED", currentPrefix);
+  MIN_NUM_OF_FACES_FOR_TAINTING = ParameterConfiguration::getInstance()->getParameter("MIN_NUM_OF_FACES_FOR_TAINTING", currentPrefix);
+  MAX_TAINTED_PROBES_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("MAX_TAINTED_PROBES_PERCENTAGE", currentPrefix);
+  REQUIREMENT_MAXDELAY = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXDELAY", currentPrefix);
+  REQUIREMENT_MAXLOSS = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MAXLOSS", currentPrefix);
+  REQUIREMENT_MINBANDWIDTH = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MINBANDWIDTH", currentPrefix);
+  HYSTERESIS_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("HYSTERESIS_PERCENTAGE", currentPrefix);
+  RTT_TIME_TABLE_MAX_DURATION = time::milliseconds((int)ParameterConfiguration::getInstance()->getParameter("RTT_TIME_TABLE_MAX_DURATION", currentPrefix));
+}
+
 
 void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pitEntry,
                                                 const Face& inFace, 
@@ -300,7 +308,11 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
 {
   NFD_LOG_DEBUG("Received data: " << data.getName());
 
+  // Get the current prefix from the data name
   std::string currentPrefix = data.getName().getPrefix(PREFIX_OFFSET).toUri();
+
+  // Set per-prefix parameters
+  refreshParameters(currentPrefix);
 
   // Check if incoming data is probe data
   if (data.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
@@ -359,8 +371,11 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
 {
   NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason = " << nack.getReason());
 
-  // Get measurementInfo for current prefix.
+  // Get the current prefix from the pit entry
   std::string currentPrefix = pitEntry->getInterest().getName().getPrefix(PREFIX_OFFSET).toUri();
+
+  // Set per-prefix parameters
+  refreshParameters(currentPrefix);
 
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
