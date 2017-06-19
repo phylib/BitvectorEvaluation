@@ -31,6 +31,9 @@
 #include "../extensions/utils/parameterconfiguration.h"
 #include "../extensions/strategies/lowest-cost-strategy.hpp"
 
+#include "../extensions/tracers/push-tracer.hpp"
+#include "../extensions/tracers/ndn-l3-packet-tracer.hpp"
+
 #include <sstream>
 
 namespace ns3 {
@@ -74,10 +77,11 @@ main(int argc, char* argv[])
   cmd.AddValue("linkErrors", "Number of link errors during simulation", linkErrorParam);
   cmd.Parse(argc, argv);
 
+  std::string appSuffix = "/app";
   std::string probeSuffix = "/probe";
-  ParameterConfiguration::getInstance()->APP_SUFFIX = "/app";
+  ParameterConfiguration::getInstance()->APP_SUFFIX = appSuffix;
   ParameterConfiguration::getInstance()->PROBE_SUFFIX = probeSuffix;
-  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 1);
+  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 2);
   ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1);
   ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3);
   ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10);
@@ -148,7 +152,7 @@ main(int argc, char* argv[])
   p2p->SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
   gen.randomlyPlaceNodes (4, "DataServer",ns3::ndn::NetworkGenerator::LeafNode, p2p);
   p2p->SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
-  gen.randomlyPlaceNodes (0, "DataClient",ns3::ndn::NetworkGenerator::LeafNode, p2p);
+  gen.randomlyPlaceNodes (4, "DataClient",ns3::ndn::NetworkGenerator::LeafNode, p2p);
 
 
   // 3) Install NDN Stack on all nodes
@@ -219,9 +223,9 @@ main(int argc, char* argv[])
   pushCallerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
   pushCallerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
 
-  // ns3::ndn::AppHelper voipProducerHelper ("ns3::ndn::VoIPProducer"); // Callee for prerequest and standard approach
-  // voipProducerHelper.SetAttribute ("PayloadSize", StringValue("82"));
-  // voipProducerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice 
+  ns3::ndn::AppHelper voipProducerHelper ("ns3::ndn::VoIPProducer"); // Callee for prerequest and standard approach
+  voipProducerHelper.SetAttribute ("PayloadSize", StringValue("82"));
+  voipProducerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice 
 
   ndn::AppHelper probeProducerHelper("ns3::ndn::ProbeDataProducer");
   probeProducerHelper.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
@@ -255,19 +259,19 @@ main(int argc, char* argv[])
 
       if (approach.compare("push") == 0) {
         // Install producer on caller-side
-        calleeHelper.SetPrefix(callerPrefix);
+        calleeHelper.SetPrefix(callerPrefix + appSuffix);
         ApplicationContainer consumer = calleeHelper.Install(caller);
         // Install consumer on caller-side
-        pushCallerHelper.SetPrefix(calleePrefix);
+        pushCallerHelper.SetPrefix(calleePrefix + appSuffix);
         consumer = pushCallerHelper.Install(caller);
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
 
         // Install producer on callee-side
-        calleeHelper.SetPrefix(calleePrefix);
+        calleeHelper.SetPrefix(calleePrefix + appSuffix);
         consumer = calleeHelper.Install(callee);
         // Install consumer on callee-side
-        pushCallerHelper.SetPrefix(callerPrefix);
+        pushCallerHelper.SetPrefix(callerPrefix + appSuffix);
         consumer = pushCallerHelper.Install (callee);
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
@@ -285,8 +289,8 @@ main(int argc, char* argv[])
       } else {
 
         // Install producer on caller-side
-        // voipProducerHelper.SetPrefix(callerPrefix);
-        // voipProducerHelper.Install(caller);
+        voipProducerHelper.SetPrefix(callerPrefix);
+        voipProducerHelper.Install(caller);
         // Install consumer on caller-side
         callerHelper.SetPrefix(calleePrefix);
         ApplicationContainer consumer = callerHelper.Install (caller);
@@ -294,8 +298,8 @@ main(int argc, char* argv[])
         consumer.Stop(MilliSeconds(end));
 
         // Install producer on callee-side
-        // voipProducerHelper.SetPrefix(calleePrefix);
-        // voipProducerHelper.Install(callee);
+        voipProducerHelper.SetPrefix(calleePrefix);
+        voipProducerHelper.Install(callee);
         // Install consumer on callee-side
         callerHelper.SetPrefix(callerPrefix);
         consumer = callerHelper.Install (callee);
@@ -333,17 +337,15 @@ main(int argc, char* argv[])
   NodeContainer pushParticipants;
   pushParticipants.Add(server);
   pushParticipants.Add(client);
-  // todo: reactivate all tracers
   if (approach.compare("standard") == 0) {
-    //ndn::AppDelayTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+    ndn::AppDelayTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
   } else {
-    // Todo: reactivate push-tracer
-    //ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+    ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
   }
-  //ndn::L3RateTracer::Install(pushParticipants, std::string(logDir + "push-rate-trace.txt"), Seconds(600.0));
-  //ndn::AppDelayTracer::Install(dataClient, std::string(logDir + "data-trace.txt"));
-  //ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
-  //L2RateTracer::InstallAll("drop-trace.txt", Seconds(1));
+  ndn::L3RateTracer::Install(pushParticipants, std::string(logDir + "push-rate-trace.txt"), Seconds(600.0));
+  ndn::AppDelayTracer::Install(dataClient, std::string(logDir + "data-trace.txt"));
+  ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
+  L2RateTracer::InstallAll("drop-trace.txt", Seconds(1));
 
 
   // Calculate and install FIBs

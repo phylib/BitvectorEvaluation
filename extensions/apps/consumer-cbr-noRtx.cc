@@ -13,6 +13,7 @@
 #include "ns3/double.h"
 
 #include "ns3/ndnSIM/utils/ndn-ns3-packet-tag.hpp"
+#include "ns3/ndnSIM/ndn-cxx/lp/tags.hpp"
 #include "ns3/ndnSIM/utils/ndn-rtt-mean-deviation.hpp"
 
 #include <boost/lexical_cast.hpp>
@@ -218,15 +219,21 @@ ConsumerCbrNoRtx::OnData(shared_ptr<const Data> data)
 
   // todo: Re-Activate hopCount
   // Disabled due to API changes from ndnSIM2.1 to ndnSIM 2.3
+  int hopCount = 0;
+  auto hopCountTag = data->getTag<lp::HopCountTag>();
+  if (hopCountTag != nullptr) { // e.g., packet came from local node's cache
+    hopCount = *hopCountTag;
+    NS_LOG_DEBUG("Hop count: " << hopCount);
+  }
 
   SeqTimeoutsContainer::iterator entry = m_seqLastDelay.find(seq);
   if (entry != m_seqLastDelay.end()) {
-    m_lastRetransmittedInterestDataDelay(this, seq, Simulator::Now() - entry->time, data->getContent().size(), 0);
+    m_lastRetransmittedInterestDataDelay(this, seq, Simulator::Now() - entry->time, data->getContent().size(), hopCount);
   }
 
   entry = m_seqFullDelay.find(seq);
   if (entry != m_seqFullDelay.end()) {
-    m_firstInterestDataDelay(this, seq, Simulator::Now() - entry->time, data->getContent().size(), m_seqRetxCounts[seq], 0);
+    m_firstInterestDataDelay(this, seq, Simulator::Now() - entry->time, data->getContent().size(), m_seqRetxCounts[seq], hopCount);
   }
 
   m_seqRetxCounts.erase(seq);

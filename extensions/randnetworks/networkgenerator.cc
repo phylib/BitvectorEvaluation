@@ -285,8 +285,7 @@ void NetworkGenerator::creatRandomLinkFailure(double minTimestamp, double maxTim
     m_linkFailures.push_back(loggingInfo.str());
 
     // todo: add error rate
-    // Simulator::Schedule (MilliSeconds (startTime), ns3::ndn::LinkControlHelper::FailLink, channelNodes.Get (0), channelNodes.Get (1), errorRate);
-    Simulator::Schedule (MilliSeconds (startTime), ns3::ndn::LinkControlHelper::FailLink, channelNodes.Get (0), channelNodes.Get (1));
+    Simulator::Schedule (MilliSeconds (startTime), ns3::ndn::LinkControlHelper::FailLink, channelNodes.Get (0), channelNodes.Get (1), errorRate);
     Simulator::Schedule (MilliSeconds (stopTime), ns3::ndn::LinkControlHelper::UpLink,   channelNodes.Get (0), channelNodes.Get (1));
 
     //fprintf(stderr, "Start LinkFail between %s and %s: %f\n",Names::FindName (channelNodes.Get (0)).c_str (),Names::FindName (channelNodes.Get (1)).c_str (), startTime);
