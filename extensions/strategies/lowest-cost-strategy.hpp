@@ -1,23 +1,21 @@
-/* -*- Mode:C++; c-file-style:"gnu";
- * indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2015 Klaus Schneider, University of Bamberg, Germany
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/**
+ * Copyright (c) 2011-2015  Regents of the University of California.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * This file is part of ndnSIM. See AUTHORS for complete list of ndnSIM authors and
+ * contributors.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * ndnSIM is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * ndnSIM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
  *
- * Author: Klaus Schneider <klaus.schneider@uni-bamberg.de>
- */
+ * You should have received a copy of the GNU General Public License along with
+ * ndnSIM, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
+ **/
 #ifndef NFD_DAEMON_FW_LOWEST_COST_STRATEGY_HPP
 #define NFD_DAEMON_FW_LOWEST_COST_STRATEGY_HPP
 
@@ -35,15 +33,16 @@
 namespace nfd {
 namespace fw {
 
-/** \brief Lowest Cost Strategy
+/** 
+ * @brief Lowest Cost Strategy
  *
  * This strategy uses probing to assess the quality of the current working path and one alternative path.
- * If the quality of the working path crosses a threshold (maxldelay, maxloss and minbandwith) all future interests
- * are sent on the alternative path. The alternative then becomes the working path and a new alternative is searched for.
- * 
- * Alternative routes are found by using the algorithm from the bestroute_1 strategy (taking the first valid entry in nexthops).
- * In the case that neither working path nor alternative meet the requirements, the next best face (other than those two)
- * is selected.
+ * If the quality of the working path crosses a threshold (maxldelay, maxloss and minbandwith) all future 
+ * interests are sent on the alternative path. The alternative then becomes the working path and a new 
+ * alternative is searched for. 
+ * Alternative paths are found by using the algorithm from the bestroute_1 strategy (taking the first valid 
+ * entry in nexthops). In the case that neither working path nor alternative meet the requirements, the 
+ * next best face (other than those two) is selected.
  *
  */
 class LowestCostStrategy : public Strategy
@@ -65,6 +64,69 @@ public:
 public:
 
   static const Name STRATEGY_NAME;
+
+private:
+
+  /**
+   * Finds an alternative path for probing by selecting the next entry in the FIB
+   * in regards to the current working face.
+   *
+   * @param outFaceId The FaceId of current outFace.
+   * @param nexthops The list of nexthops in which to search for the face.
+   * @returns FaceId of alternative outFace
+   */
+  FaceId getAlternativeOutFaceId(FaceId outFaceId, const fib::NextHopList& nexthops);
+
+  /**
+   * If the current path performs well according to the requirements (maxdelay, maxloss, minbandwith)
+   * this method will just return the current path. If it underperforms,this method will try to provide 
+   * an alternative path that does meet the requirements. If no such path is found, it will return an
+   * untested alternative since there is at least the chance it will perform well enough.
+   *
+   * @param nexthops The list of nexthops in which to search for the face.
+   * @param pitEntry The pitEntry of the interest the face is intended for.
+   * @param currentPrefix The Prefix of the interest which needs an outface for forwarding.
+   * @returns FaceId of face that should be used for forwarding.
+   */
+  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry, std::string currentPrefix);
+
+  /**
+   * Tries to return a face by using the original bestRout algorithm. If no face is found this way
+   * the first face in the list of nexthops is chosen.
+   *
+   * @param nexthops The list of nexthops in which to search for the face.
+   * @param pitEntry The pitEntry of the interest the face is intended for.
+   * @returns FaceId of face found by using the original BestRoute algorithm.
+   */
+  FaceId getFaceIdViaBestRoute(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry);
+
+  /**
+   * Searches a list of nexthops for a face with the given id.
+   *
+   * @param faceId The FaceId of the face for which an alternative should be found.
+   * @param nexthops The list of nexthops in which to search for the face.
+   * @returns the face which corresponds to the given id.
+   */
+  Face& getFaceViaId(FaceId faceId , const fib::NextHopList& nexthops);
+
+  /**
+   * A simple helper function which helps to regulate tainting decisions.
+   *
+   * @returns true every n-th call, where n is the percentage specified in MAX_TAINTED_PROBES_PERCENTAGE.
+   */
+  bool taintingAllowed();
+
+  /**
+   * Makes sure all parameters are set according to the values specified in ParameterConfiguration.
+   *
+   * @param currentPrefix The Prefix for which the parameter values should be refreshed. 
+   */
+  void refreshParameters(std::string currentPrefix) ;
+
+private:
+  StrategyChoice& ownStrategyChoice;
+
+  // Class variables for all the relevant parameters in ParameterConfiguration (for more readable code)
   std::string PROBE_SUFFIX;
   int PREFIX_OFFSET;
   bool TAINTING_ENABLED;
@@ -75,49 +137,11 @@ public:
   double REQUIREMENT_MINBANDWIDTH;
   double HYSTERESIS_PERCENTAGE;
   time::nanoseconds RTT_TIME_TABLE_MAX_DURATION; 
+  
+  // Simple counter used in taintingAllowed().
+  int taintingCounter; 
 
-private:
-
-  /**
-   * Returns an alternative path for probing by selecting the next entry in the FIB
-   * in regards to the current working face.
-   */
-  FaceId getAlternativeOutFaceId(FaceId outFaceId, const fib::NextHopList& nexthops);
-
-  /**
-   * Returns the face with the lowest cost that satisfies all requirements.
-   */
-  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry, std::string currentPrefix);
-
-  /**
-   * Returns a face by using the original BestRoute algorithm.
-   * Returns NULL if no valid face can be found.
-   */
-  FaceId getFaceIdViaBestRoute(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry);
-
-  /**
-   * Searches the given NextHopList for a face with the given id.
-   * Returns the face which corresponds to the given id.
-   */
-  Face& getFaceViaId(FaceId faceId , const fib::NextHopList& nexthops);
-
-  /**
-   * A simple helper function which helps to regulate tainting decisions.
-   * Returns true every n-th call, where n is the percentage specified in MAX_TAINTED_PROBES_PERCENTAGE.
-   */
-  bool taintingAllowed();
-
-  /**
-   * Makes sure all parameters are set according to the values specified in ParameterConfiguration.
-   */
-  void refreshParameters(std::string currentPrefix) ;
-
-private:
-  std::unordered_map<FaceId, InterfaceEstimation> faceInfoTable;
-  StrategyChoice& ownStrategyChoice;
-  int taintingCounter; // Simple counter used in taintingAllowed().
-
-  // A list containing one MeasurementInfo object for each prefix this strategy is currently dealing with.
+  // A map containing measurements for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;
 };
 

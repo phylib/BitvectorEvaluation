@@ -1,22 +1,21 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2015 Klaus Schneider, University of Bamberg, Germany
+/**
+ * Copyright (c) 2011-2015  Regents of the University of California.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
+ * This file is part of ndnSIM. See AUTHORS for complete list of ndnSIM authors and
+ * contributors.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * ndnSIM is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * ndnSIM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * PURPOSE.  See the GNU General Public License for more details.
  *
- * Author: Klaus Schneider <klaus.schneider@uni-bamberg.de>
- */
+ * You should have received a copy of the GNU General Public License along with
+ * ndnSIM, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
+ **/
 #include "lowest-cost-strategy.hpp"
 #include "core/logger.hpp"
 #include "fw/measurement-info.hpp"
@@ -47,10 +46,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 {
   NFD_LOG_DEBUG("Íncoming Interest: " << interest.getName());
 
-  /**
-  * Fetch and prepare the fibEntry (needed since switch to ndnSIM 2.3, 
-  * where fibentry is no longer provided out of the box by "afterReceiveInterest")
-  */ 
+  // Fetch and prepare the fibEntry
   const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
   const fib::NextHopList& nexthops = fibEntry.getNextHops();
 
@@ -60,7 +56,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // Set per-prefix parameters
   refreshParameters(currentPrefix);
 
-  // Check if there is no entry yet for the current prefix
+  // Check if there are noe measurements yet for the current prefix
   if (measurementMap.find(currentPrefix) == measurementMap.end())
   {
     // Create a new MeasurementInfo and place it in the measurementMap under the currentPrefix. 
@@ -72,10 +68,10 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     measurementMap[currentPrefix] = mi;
   }
 
-  // Create a pointer to the outface that this Interest will be forwarded to
+  // Get the ID to the outface that this Interest will be forwarded to
   FaceId selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
 
-  // Check if packet is a probe (push Interests should not be redirected)
+  // Check if packet is a probe (only probes may be redirected)
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
@@ -85,18 +81,16 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
     {
-      // Check if there is more than one outFace (no need to taint if no alternatives available)
+      // Check if there is more than one outFace (no need to redirect if no alternatives available)
       if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_TAINTING)
       {
-        // Check if this router is allowed to use some probes for monitoring alternative routes 
+        // Check if this router is allowed to use this probe for monitoring alternative routes 
         if (taintingAllowed() && TAINTING_ENABLED)
         {
           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
           // NOTE: const_cast is a hack and should generally be avoided!
           Interest& nonConstInterest = const_cast<Interest&>(interest);
           nonConstInterest.setTainted(true);
-          // TODO: check if the conversion back to const is working/necessiary
-          // Interest& interest = const_cast<const Interest&>(nonConstInterest); 
 
           NFD_LOG_INFO("Tainted this interest: " << interest.getName());
 
@@ -164,12 +158,10 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
                                                   const shared_ptr<pit::Entry> pitEntry,
                                                   std::string currentPrefix)
 {
-  // NFD_LOG_DEBUG("nexthops size: " << nexthops.size());
-
   // Check if there is only one available face anyway.
   if (nexthops.size() <= 2)
   {
-    NFD_LOG_INFO("nexthops.size() <= 2, return getFaceIdViaBestRoute() " << pitEntry->getInterest().getName());
+    NFD_LOG_INFO("Only one face available. Using bestRoute." << pitEntry->getInterest().getName());
     return getFaceIdViaBestRoute(nexthops, pitEntry);
   }
   double delayLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::DELAY); 
@@ -182,8 +174,7 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
   // Check if current working path measurements are still uninitialised
   if (currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0)
   { 
-    NFD_LOG_INFO ("measurements uninitialised.");
-    // NFD_LOG_INFO("currentDelay == 10 && currentLoss == 0 && currentBandwidth == 0, return currentWorkingFaceId " << pitEntry->getInterest().getName());
+    NFD_LOG_INFO ("Measurements still uninitialised. Staying on current working path.");
     return measurementMap[currentPrefix].currentWorkingFaceId;
   }
 
@@ -209,9 +200,9 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
     else 
     {
       /* 
-      * If alternative also underperforms, take the next best alternative and hope for the best 
-      * (since there is no performance data available yet)
-      */
+       * If alternative also underperforms, take the next alternative and hope for the best 
+       * (since there will be no performance data available yet)
+       */
       if (canForwardToLegacy(*pitEntry, getFaceViaId(alternativeOutFaceId, nexthops))) 
       { 
         NFD_LOG_INFO("Taking next best alternative out of desperation: " << getAlternativeOutFaceId(alternativeOutFaceId, nexthops) << " " << pitEntry->getInterest().getName());
@@ -219,15 +210,11 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
       }      
     }
   } 
-  NFD_LOG_INFO("No other valid face found. Returning current best face: " << measurementMap[currentPrefix].currentWorkingFaceId);
+  // If current path performs well enough, just stay on it.
+  NFD_LOG_INFO("Current working path performs well enough. Staying on it. " << measurementMap[currentPrefix].currentWorkingFaceId);
   return measurementMap[currentPrefix].currentWorkingFaceId;
 }
 
-static inline bool
-predicate_PitEntry_canForwardTo_NextHop(shared_ptr<pit::Entry> pitEntry, const fib::NextHop& nexthop)
-{
-  return canForwardToLegacy(*pitEntry, nexthop.getFace());
-}
 
 FaceId LowestCostStrategy::getFaceIdViaBestRoute( const fib::NextHopList& nexthops, 
                                                   const shared_ptr<pit::Entry> pitEntry)
@@ -244,7 +231,7 @@ FaceId LowestCostStrategy::getFaceIdViaBestRoute( const fib::NextHopList& nextho
 }
 
 
-FaceId LowestCostStrategy::getAlternativeOutFaceId(FaceId outFaceId, 
+FaceId LowestCostStrategy::getAlternativeOutFaceId( FaceId outFaceId, 
                                                     const fib::NextHopList& nexthops)
 {
   if (nexthops.size() > 1)
@@ -266,12 +253,14 @@ FaceId LowestCostStrategy::getAlternativeOutFaceId(FaceId outFaceId,
 Face& LowestCostStrategy::getFaceViaId( FaceId faceId, 
                                         const fib::NextHopList& nexthops)
 {
+  // Try to find a face with the given ID in nexthops
   for (fib::NextHopList::const_iterator it = nexthops.begin(); it != nexthops.end(); ++it) {
     if (it->getFace().getId() == faceId)
     {
       return it->getFace();
     }
   }
+  // If no face was found, just use the first.
   NFD_LOG_WARN("Face " << (int)faceId << " was not found in nexthops. Returned face " << (int) nexthops[0].getFace().getId() << " instead.");
   return nexthops[0].getFace();
 }
@@ -330,7 +319,7 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
         measurementMap[currentPrefix].myTaintedProbes.erase(myTaintedProbesIterator);
         NFD_LOG_INFO("Removed " << data.getName() << "from myTaintedProbes.");
 
-        // TODO: Find a way to stop the data packet from being forwarded any further.
+        // @todo: Find a way to stop the data packet from being forwarded any further.
       }
       // Inform loss estimator
       InterfaceEstimation& faceInfo = measurementMap[currentPrefix].faceInfoMap[inFace.getId()];
@@ -355,8 +344,8 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
     else 
     {
       /*
-      * TODO: Find a way to determine if this router is before or after the "tainter", since it could theoretically 
-      *       use tainted probes for measurement as long as it is a router after the tainter.
+      * @todo: Find a way to determine if this router is before or after the "tainter", since it could theoretically 
+      *        use tainted probes for measurement as long as it is a router after the tainter.
       */
     }
 
@@ -379,14 +368,12 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
 
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
-    // NFD_LOG_DEBUG("Received NACK for " << pitEntry->getInterest().getName() << " with NackReason::TAINTED");
-
-      // Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets') 
       /*
-      * Delay: Just dont calculate rtt, entries will drop out of the custom list by themselves
-      * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
-      * Bandwith: Omit "addSatisfiedInterest"
-      */ 
+       * Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets'). 
+       * Delay: Just dont calculate rtt, entries will drop out of the custom list on their own
+       * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
+       * Bandwith: Omit "addSatisfiedInterest"
+       */ 
       measurementMap[currentPrefix].faceInfoMap[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
       NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
 

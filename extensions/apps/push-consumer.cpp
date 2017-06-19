@@ -247,7 +247,8 @@ PushConsumer::SendProbe()
   * Create a new name for probe Interests by cutting off the last part of PI's name  
   * and appending the probe suffix and a seq number instead 
   */ 
-  std::string oldNameString =  m_interestName.toUri(); 
+  std::string oldNameString =  m_interestName.getPrefix(m_interestName.size() - 1).toUri();  
+  //std::string oldNameString =  m_interestName.toUri(); 
   std::string probeNameString = oldNameString + PROBE_SUFFIX; 
   uint32_t seq = rand() % 1000000; // should be UUID, but that's out of scope for now. 
   shared_ptr<Name> probeNameWithSequence = make_shared<Name>(probeNameString); 

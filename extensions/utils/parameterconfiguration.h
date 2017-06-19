@@ -22,7 +22,7 @@
 #include <map>
 #include <string>
 
-//per-prefix parameters that can be overriden:
+//per-prefix parameters
 #define P_TAINTING_ENABLED              1      // specifies if probes will be forwarded or not; 1=true, 0=false; 
 #define P_MIN_NUM_OF_FACES_FOR_TAINTING 3      // the minimum number of faces a node must have to redirect probes
 #define P_MAX_TAINTED_PROBES_PERCENTAGE 10     // percentage of working path probes that may be redirected
@@ -32,36 +32,38 @@
 #define P_RTT_TIME_TABLE_MAX_DURATION   1000   // maximum time (in milliseconds) an entry is kept in the rttMap before being erased
 
 /**
- * @brief The ParameterConfiguration class is used to set/get parameters to configure the lowest-cost-strategy.
- * The class uses a singleton pattern.
+ * The ParameterConfiguration class is used to set/get parameters to configure the lowest-cost-strategy.
+ *
+ * @note The class uses a singleton pattern.
  */
 class ParameterConfiguration
 {
 public:
   //shared parameters (not per-prefix):
-  std::string APP_SUFFIX = "/app";
-  std::string PROBE_SUFFIX = "/probe";
+  std::string APP_SUFFIX = "/app"; // suffix that helps identifying persistent Interests
+  std::string PROBE_SUFFIX = "/probe"; // suffix that helps identifying probes
   int PREFIX_OFFSET = 1; // number of name components which are considered as prefix
 
 
   /**
-   * @brief returns the singleton instance.
-   * @return
+   * @returns the singleton instance.
    */
   static ParameterConfiguration* getInstance();
 
   /**
-   * @brief sets a parameter
-   * @param param_name the name of the parameter.
-   * @param value the value of the parameter.
-   * @param (optional) prefix the parameter should be set for
+   * Sets a parameter
+   *
+   * @param param_name The name of the parameter.
+   * @param value The value of the parameter.
+   * @param prefix The parameter should be set for (optional). 
    */
   void setParameter(std::string param_name, double value, std::string prefix = "/");
 
   /**
-   * @brief gets a parameter.
-   * @param para_name the name of the parameter.
-   * @param (optional) prefix the parameter should fetched from
+   * Gets a parameter.
+   *
+   * @param para_name The name of the parameter.
+   * @param prefix The parameter should fetched from (optional).
    * @return
    */
   double getParameter(std::string param_name, std::string prefix = "/");
@@ -69,14 +71,15 @@ public:
 protected:  
   ParameterConfiguration();
 
+  std::map<std::string, double> typedef ParameterMap; // <param name, param value>
+
+  // The singleton instance.
   static ParameterConfiguration* instance;
 
-  std::map<
-  std::string /*param name*/,
-  double /*param value*/
-  > typedef ParameterMap;
-
+  // A map containing parameters and their values.
   ParameterMap pmap;
+
+  // A map containing one ParameterMap per prefix.
   std::map<std::string, ParameterMap> prefixMap;
 
 
