@@ -41,6 +41,8 @@ main(int argc, char* argv[])
   std::string approach = "push";
   std::string piRefreshFrequency = "2s";
   std::string linkErrorParam = "5";
+  std::string linkFailureDuration = "120";
+  std::string linkFailureDurationVariation = "0.2";
   std::string appSuffix = "/app";
   std::string probeSuffix = "/probe";
   int prefixOffset = 2;
@@ -60,6 +62,8 @@ main(int argc, char* argv[])
   cmd.AddValue("approach", "Approach to simulate (push|prerequest|standard). Default: push", approach);
   cmd.AddValue("piRefreshFrequency", "Number of Refresh Persistent Interests per Second", piRefreshFrequency);
   cmd.AddValue("linkErrors", "Number of link errors during simulation", linkErrorParam);
+  cmd.AddValue("linkFailureDuration", "Duration of link failures in seconds", linkFailureDuration);
+  cmd.AddValue("linkFailureDurationVariation", "Variation of linkFailureDuration in percent", linkFailureDurationVariation);
   cmd.AddValue("appSuffix", "---", appSuffix);
   cmd.AddValue("probeSuffix", "---", probeSuffix);
   cmd.AddValue("prefixOffset", "---", prefixOffset);
@@ -93,8 +97,8 @@ main(int argc, char* argv[])
   
   for (int i = 0; i < std::stoi(linkErrorParam); ++i)
   {
-    randomLinkNumbers[i] = rng->GetInteger(0, 29); // (0, number of links - 1)
-    std::cout << "randomLinkNumber_" << i << ": " << randomLinkNumbers[i] << std::endl;
+    randomLinkNumbers[i] = rng->GetInteger(0, 14); // (0, number of links - 1)
+    // std::cout << "randomLinkNumber_" << i << ": " << randomLinkNumbers[i] << std::endl;
   }
 
   // Print parameters
@@ -109,6 +113,8 @@ main(int argc, char* argv[])
   std::cout << "approach: " << approach << std::endl;
   std::cout << "PI Refresh Frequency: " << piRefreshFrequency << std::endl;
   std::cout << "Link errors: " << linkErrorParam << std::endl;
+  std::cout << "linkFailureDuration: " << linkFailureDuration << std::endl;
+  std::cout << "linkFailureDurationVariation: " << linkFailureDurationVariation << std::endl;
   std::cout << "appSuffix: " << appSuffix << std::endl;
   std::cout << "probeSuffix: " << probeSuffix << std::endl;
   std::cout << "prefixOffset: " << prefixOffset << std::endl;
@@ -184,19 +190,16 @@ main(int argc, char* argv[])
 
   // Set forwarding strategy
   ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/" + forwardingStrategy);
-  // ndn::StrategyChoiceHelper::InstallAll(prefixA, "/localhost/nfd/strategy/" + forwardingStrategy);
-  // ndn::StrategyChoiceHelper::InstallAll(prefixB, "/localhost/nfd/strategy/" + forwardingStrategy);
 
   // Prepare applications 
-  // TODO: switch to voip applications?
   ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
-  consumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency)); // 1 interests every 4 seconds
-  consumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
   consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
+  consumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency));
+  consumerHelper.SetAttribute("ProbeFrequency", StringValue("30"));
 
   ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer");
-  pushProducerHelper.SetAttribute("Frequency", StringValue("50")); // One packet every 0.02 Seconds
-  pushProducerHelper.SetAttribute("PayloadSize", StringValue("1000")); // 64kbps * 0.02sec + 58byte Packet-Overhead
+  pushProducerHelper.SetAttribute("Frequency", StringValue("100")); 
+  pushProducerHelper.SetAttribute("PayloadSize", StringValue("82"));
 
   ndn::AppHelper ProbeProducerHelper("ns3::ndn::ProbeDataProducer");
   ProbeProducerHelper.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
@@ -233,47 +236,40 @@ main(int argc, char* argv[])
 
     switch(randomLinkNumbers[i]) 
     {
-      case 0 : linkNode1 = Names::Find<Node>("ATLA-M5"); linkNode2 = Names::Find<Node>("ATLAng");
-      case 1 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("ATLA-M5");
-      case 2 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("HSTNng");
-      case 3 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("IPLSng");
-      case 4 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("WASHng");
-      case 5 : linkNode1 = Names::Find<Node>("CHINng"); linkNode2 = Names::Find<Node>("IPLSng");
-      case 6 : linkNode1 = Names::Find<Node>("CHINng"); linkNode2 = Names::Find<Node>("NYCMng");
-      case 7 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("KSCYng");
-      case 8 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("SNVAng");
-      case 9 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("STTLng");
-      case 10: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("ATLAng");
-      case 11: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("KSCYng");
-      case 12: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("LOSAng");
-      case 13: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("ATLAng");
-      case 14: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("CHINng");
-      case 15: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("KSCYng");
-      case 16: linkNode1 = Names::Find<Node>("KSCYng"); linkNode2 = Names::Find<Node>("DNVRng");
-      case 17: linkNode1 = Names::Find<Node>("KSCYng"); linkNode2 = Names::Find<Node>("HSTNng");
-      case 18: linkNode1 = Names::Find<Node>("KSCYng"); linkNode2 = Names::Find<Node>("IPLSng");
-      case 19: linkNode1 = Names::Find<Node>("LOSAng"); linkNode2 = Names::Find<Node>("HSTNng");
-      case 20: linkNode1 = Names::Find<Node>("LOSAng"); linkNode2 = Names::Find<Node>("SNVAng");
-      case 21: linkNode1 = Names::Find<Node>("NYCMng"); linkNode2 = Names::Find<Node>("CHINng");
-      case 22: linkNode1 = Names::Find<Node>("NYCMng"); linkNode2 = Names::Find<Node>("WASHng");
-      case 23: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("DNVRng");
-      case 24: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("LOSAng");
-      case 25: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("STTLng");
-      case 26: linkNode1 = Names::Find<Node>("STTLng"); linkNode2 = Names::Find<Node>("DNVRng");
-      case 27: linkNode1 = Names::Find<Node>("STTLng"); linkNode2 = Names::Find<Node>("SNVAng");
-      case 28: linkNode1 = Names::Find<Node>("WASHng"); linkNode2 = Names::Find<Node>("ATLAng");
-      case 29: linkNode1 = Names::Find<Node>("WASHng"); linkNode2 = Names::Find<Node>("NYCMng");
-
-      Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures), 
-        ndn::LinkControlHelper::FailLink, linkNode1, linkNode2);
-
-      std::cout << "FailureTime_" << i << ": " << (0.0 + i * timeBetweenFailures) << std::endl;
+      case 0 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("ATLA-M5"); break;
+      case 1 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("HSTNng"); break;
+      case 2 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("IPLSng"); break;
+      case 3 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("WASHng"); break;
+      case 4 : linkNode1 = Names::Find<Node>("CHINng"); linkNode2 = Names::Find<Node>("IPLSng"); break;
+      case 5 : linkNode1 = Names::Find<Node>("CHINng"); linkNode2 = Names::Find<Node>("NYCMng"); break;
+      case 6 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("KSCYng"); break;
+      case 7 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("SNVAng"); break;
+      case 8 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("STTLng"); break;
+      case 9 : linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("KSCYng"); break;
+      case 10: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("LOSAng"); break;
+      case 11: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("KSCYng"); break;
+      case 12: linkNode1 = Names::Find<Node>("LOSAng"); linkNode2 = Names::Find<Node>("SNVAng"); break;
+      case 13: linkNode1 = Names::Find<Node>("NYCMng"); linkNode2 = Names::Find<Node>("WASHng"); break;
+      case 14: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("STTLng"); break;
+      default: linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("KSCYng"); break;
     }
+    // Link down
+    Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures), 
+      ndn::LinkControlHelper::FailLink, linkNode1, linkNode2);
+    // Link up
+    Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures + std::stoi(linkFailureDuration)), 
+      ndn::LinkControlHelper::UpLink, linkNode1, linkNode2);
+
+    std::cout << "FailureTime_" << i << ": " << (0.0 + i * timeBetweenFailures) << "      Node_" << linkNode1->GetId() << " --x-- Node_" << linkNode2->GetId() << std::endl;
   }
   std::cout << std::endl;
 
   // Tracer
-  // TODO
+  NodeContainer pushParticipants;
+  pushParticipants.Add(nodeA);
+  pushParticipants.Add(nodeB);
+  // ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+  // ns3::ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
 
 
   Simulator::Stop(MilliSeconds(simTime));
