@@ -32,9 +32,6 @@ int
 main(int argc, char* argv[])
 {
   // Variables
-  Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable> ();
-  int randomNodeNumber1 = rng->GetInteger(0, 11);
-  int randomNodeNumber2 = rng->GetInteger(0, 11);
   uint32_t simTime = 10 * 60* 1000; // Simtime in milliseconds (10 minutes)
   
   // Parameters
@@ -43,7 +40,7 @@ main(int argc, char* argv[])
   std::string logDir = "ndnSIM_2.3/scenario/results/";
   std::string approach = "push";
   std::string piRefreshFrequency = "2s";
-  std::string linkErrorParam = "0";
+  std::string linkErrorParam = "5";
   std::string appSuffix = "/app";
   std::string probeSuffix = "/probe";
   int prefixOffset = 2;
@@ -87,7 +84,21 @@ main(int argc, char* argv[])
   ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", requirementMinBandwidth);
   ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", rttTimeTableMaxDuration);
 
+
+  // RNG handling
+  Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable> ();
+  int randomNodeNumber1 = rng->GetInteger(0, 11); // (0, number of nodes - 1)
+  int randomNodeNumber2 = rng->GetInteger(0, 11); // (0, number of nodes - 1)
+  int randomLinkNumbers[std::stoi(linkErrorParam)];
+  
+  for (int i = 0; i < std::stoi(linkErrorParam); ++i)
+  {
+    randomLinkNumbers[i] = rng->GetInteger(0, 29); // (0, number of links - 1)
+    std::cout << "randomLinkNumber_" << i << ": " << randomLinkNumbers[i] << std::endl;
+  }
+
   // Print parameters
+  std::cout << std::endl;
   std::cout << "Variables" << std::endl;
   std::cout << "randomNodeNumber1: " << randomNodeNumber1 << std::endl;
   std::cout << "randomNodeNumber2: " << randomNodeNumber2 << std::endl;
@@ -214,7 +225,52 @@ main(int argc, char* argv[])
   ndn::GlobalRoutingHelper::CalculateAllPossibleRoutes();
 
   // Simulate link failures
-  // TODO
+  uint32_t timeBetweenFailures = (simTime/1000) / std::stoi(linkErrorParam); // (Simtime in seconds) / (# of failures)
+  for (int i = 0; i < std::stoi(linkErrorParam); ++i)
+  {
+    Ptr<Node> linkNode1;
+    Ptr<Node> linkNode2;
+
+    switch(randomLinkNumbers[i]) 
+    {
+      case 0 : linkNode1 = Names::Find<Node>("ATLA-M5"); linkNode2 = Names::Find<Node>("ATLAng");
+      case 1 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("ATLA-M5");
+      case 2 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("HSTNng");
+      case 3 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("IPLSng");
+      case 4 : linkNode1 = Names::Find<Node>("ATLAng"); linkNode2 = Names::Find<Node>("WASHng");
+      case 5 : linkNode1 = Names::Find<Node>("CHINng"); linkNode2 = Names::Find<Node>("IPLSng");
+      case 6 : linkNode1 = Names::Find<Node>("CHINng"); linkNode2 = Names::Find<Node>("NYCMng");
+      case 7 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("KSCYng");
+      case 8 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("SNVAng");
+      case 9 : linkNode1 = Names::Find<Node>("DNVRng"); linkNode2 = Names::Find<Node>("STTLng");
+      case 10: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("ATLAng");
+      case 11: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("KSCYng");
+      case 12: linkNode1 = Names::Find<Node>("HSTNng"); linkNode2 = Names::Find<Node>("LOSAng");
+      case 13: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("ATLAng");
+      case 14: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("CHINng");
+      case 15: linkNode1 = Names::Find<Node>("IPLSng"); linkNode2 = Names::Find<Node>("KSCYng");
+      case 16: linkNode1 = Names::Find<Node>("KSCYng"); linkNode2 = Names::Find<Node>("DNVRng");
+      case 17: linkNode1 = Names::Find<Node>("KSCYng"); linkNode2 = Names::Find<Node>("HSTNng");
+      case 18: linkNode1 = Names::Find<Node>("KSCYng"); linkNode2 = Names::Find<Node>("IPLSng");
+      case 19: linkNode1 = Names::Find<Node>("LOSAng"); linkNode2 = Names::Find<Node>("HSTNng");
+      case 20: linkNode1 = Names::Find<Node>("LOSAng"); linkNode2 = Names::Find<Node>("SNVAng");
+      case 21: linkNode1 = Names::Find<Node>("NYCMng"); linkNode2 = Names::Find<Node>("CHINng");
+      case 22: linkNode1 = Names::Find<Node>("NYCMng"); linkNode2 = Names::Find<Node>("WASHng");
+      case 23: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("DNVRng");
+      case 24: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("LOSAng");
+      case 25: linkNode1 = Names::Find<Node>("SNVAng"); linkNode2 = Names::Find<Node>("STTLng");
+      case 26: linkNode1 = Names::Find<Node>("STTLng"); linkNode2 = Names::Find<Node>("DNVRng");
+      case 27: linkNode1 = Names::Find<Node>("STTLng"); linkNode2 = Names::Find<Node>("SNVAng");
+      case 28: linkNode1 = Names::Find<Node>("WASHng"); linkNode2 = Names::Find<Node>("ATLAng");
+      case 29: linkNode1 = Names::Find<Node>("WASHng"); linkNode2 = Names::Find<Node>("NYCMng");
+
+      Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures), 
+        ndn::LinkControlHelper::FailLink, linkNode1, linkNode2);
+
+      std::cout << "FailureTime_" << i << ": " << (0.0 + i * timeBetweenFailures) << std::endl;
+    }
+  }
+  std::cout << std::endl;
 
   // Tracer
   // TODO
