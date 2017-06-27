@@ -32,12 +32,11 @@ int
 main(int argc, char* argv[])
 {
   // Variables
-  // UniformVariable rng = UniformVariable();
   Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable> ();
   int randomNodeNumber1 = rng->GetInteger(0, 11);
   int randomNodeNumber2 = rng->GetInteger(0, 11);
   uint32_t simTime = 10 * 60* 1000; // Simtime in milliseconds (10 minutes)
-
+  
   // Parameters
   std::string queue = "DropTail_Bytes";
   std::string forwardingStrategy = "lowest-cost";
@@ -59,7 +58,7 @@ main(int argc, char* argv[])
   // Read Parameters
   CommandLine cmd;
   cmd.AddValue("queueName", "Name of the queue to use", queue);
-  cmd.AddValue("forwardingStrategy", "Used forwarding strategy on all nodes [default=best-route]", forwardingStrategy);
+  cmd.AddValue("forwardingStrategy", "Used forwarding strategy on all nodes", forwardingStrategy);
   cmd.AddValue("logDir", "Folder where logfiles are stored", logDir);
   cmd.AddValue("approach", "Approach to simulate (push|prerequest|standard). Default: push", approach);
   cmd.AddValue("piRefreshFrequency", "Number of Refresh Persistent Interests per Second", piRefreshFrequency);
@@ -111,6 +110,16 @@ main(int argc, char* argv[])
   std::cout << "rttTimeTableMaxDuration: " << rttTimeTableMaxDuration << std::endl;
   std::cout << std::endl;
 
+  // Defining main prefixes
+  std::string prefixA = "/dst1";
+  std::string prefixB = "/dst2";
+
+  // Defining combined prefixes
+  std::string prefixA_App = prefixA + appSuffix;
+  std::string prefixA_Probe = prefixA + probeSuffix;
+  std::string prefixB_App = prefixB + appSuffix;
+  std::string prefixB_Probe = prefixB + probeSuffix;
+
   // Read topology
   AnnotatedTopologyReader topologyReader("", 25);
   topologyReader.SetFileName("scenarios/topologies/PIPS-topology.txt");
@@ -120,28 +129,95 @@ main(int argc, char* argv[])
   ndn::StackHelper ndnHelper;
   ndnHelper.InstallAll();
 
-  // Check which approach was chosen
-  if (forwardingStrategy.compare("lowest-cost") == 0) 
+  // Installing global routing interface on all nodes
+  ndn::GlobalRoutingHelper ndnGlobalRoutingHelper;
+  ndnGlobalRoutingHelper.InstallAll();
+
+  // Find consumer and producer nodes
+  Ptr<Node> nodeA; // consumerA & producerB
+  Ptr<Node> nodeB; // consumerB & producerA
+
+  switch(randomNodeNumber1) 
   {
-    // Set strategy
-    ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/lowest-cost");
-
-    // TODO write comment
-
-    Ptr<Node> consumer1 = Names::Find<Node>("Cons1");
-    Ptr<Node> producer1 = Names::Find<Node>("Prod1");
-    Ptr<Node> consumer2 = Names::Find<Node>("Cons2");
-    Ptr<Node> producer2 = Names::Find<Node>("Prod2");
-  } 
-
-  else if (forwardingStrategy.compare("best-route") == 0) {
-
+    case 0 :  nodeA = Names::Find<Node>("ATLA-M5");break; 
+    case 1 :  nodeA = Names::Find<Node>("ATLAng"); break;
+    case 2 :  nodeA = Names::Find<Node>("CHINng"); break;
+    case 3 :  nodeA = Names::Find<Node>("DNVRng"); break;
+    case 4 :  nodeA = Names::Find<Node>("HSTNng"); break;
+    case 5 :  nodeA = Names::Find<Node>("IPLSng"); break;
+    case 6 :  nodeA = Names::Find<Node>("KSCYng"); break;
+    case 7 :  nodeA = Names::Find<Node>("LOSAng"); break;
+    case 8 :  nodeA = Names::Find<Node>("NYCMng"); break;
+    case 9 :  nodeA = Names::Find<Node>("SNVAng"); break;
+    case 10:  nodeA = Names::Find<Node>("STTLng"); break;
+    case 11:  nodeA = Names::Find<Node>("WASHng"); break;
+    default:  nodeA = Names::Find<Node>("STTLng"); break;
   }
 
+  switch(randomNodeNumber2) 
+  {
+    case 0 :  nodeB = Names::Find<Node>("ATLA-M5");break; 
+    case 1 :  nodeB = Names::Find<Node>("ATLAng"); break;
+    case 2 :  nodeB = Names::Find<Node>("CHINng"); break;
+    case 3 :  nodeB = Names::Find<Node>("DNVRng"); break;
+    case 4 :  nodeB = Names::Find<Node>("HSTNng"); break;
+    case 5 :  nodeB = Names::Find<Node>("IPLSng"); break;
+    case 6 :  nodeB = Names::Find<Node>("KSCYng"); break;
+    case 7 :  nodeB = Names::Find<Node>("LOSAng"); break;
+    case 8 :  nodeB = Names::Find<Node>("NYCMng"); break;
+    case 9 :  nodeB = Names::Find<Node>("SNVAng"); break;
+    case 10:  nodeB = Names::Find<Node>("STTLng"); break;
+    case 11:  nodeB = Names::Find<Node>("WASHng"); break;
+    default:  nodeB = Names::Find<Node>("WASHng"); break;
+  }
 
+  // Set forwarding strategy
+  ndn::StrategyChoiceHelper::InstallAll("/", "/localhost/nfd/strategy/" + forwardingStrategy);
+  // ndn::StrategyChoiceHelper::InstallAll(prefixA, "/localhost/nfd/strategy/" + forwardingStrategy);
+  // ndn::StrategyChoiceHelper::InstallAll(prefixB, "/localhost/nfd/strategy/" + forwardingStrategy);
 
+  // Prepare applications 
+  // TODO: switch to voip applications?
+  ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
+  consumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency)); // 1 interests every 4 seconds
+  consumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
 
+  ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer");
+  pushProducerHelper.SetAttribute("Frequency", StringValue("50")); // One packet every 0.02 Seconds
+  pushProducerHelper.SetAttribute("PayloadSize", StringValue("1000")); // 64kbps * 0.02sec + 58byte Packet-Overhead
 
+  ndn::AppHelper ProbeProducerHelper("ns3::ndn::ProbeDataProducer");
+  ProbeProducerHelper.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
+
+  consumerHelper.SetPrefix(prefixA_App);
+  pushProducerHelper.SetPrefix(prefixA_App);
+  ProbeProducerHelper.SetPrefix(prefixA_Probe);
+  consumerHelper.Install(nodeA);
+  pushProducerHelper.Install(nodeB);
+  ProbeProducerHelper.Install(nodeB);
+
+  consumerHelper.SetPrefix(prefixB_App);
+  pushProducerHelper.SetPrefix(prefixB_App);
+  ProbeProducerHelper.SetPrefix(prefixB_Probe);
+  consumerHelper.Install(nodeB);
+  pushProducerHelper.Install(nodeA);
+  ProbeProducerHelper.Install(nodeA);
+
+  // Add prefix origins to ndn::GlobalRouter
+  ndnGlobalRoutingHelper.AddOrigins(prefixA_App, nodeB);
+  ndnGlobalRoutingHelper.AddOrigins(prefixA_Probe, nodeB);
+  ndnGlobalRoutingHelper.AddOrigins(prefixB_App, nodeA);
+  ndnGlobalRoutingHelper.AddOrigins(prefixB_Probe, nodeA);
+
+  // Calculate and install FIBs
+  ndn::GlobalRoutingHelper::CalculateAllPossibleRoutes();
+
+  // Simulate link failures
+  // TODO
+
+  // Tracer
+  // TODO
 
 
   Simulator::Stop(MilliSeconds(simTime));
