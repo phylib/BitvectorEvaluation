@@ -42,7 +42,7 @@ main(int argc, char* argv[])
   std::string forwardingStrategy = "lowest-cost";
   std::string logDir = "results/";
   std::string approach = "push";
-  std::string piRefreshFrequency = "2s";
+  std::string piRefreshFrequency = "1.5s";
   std::string linkErrorParam = "5";
   std::string linkFailureDuration = "120";
   std::string linkFailureDurationVariation = "0.2";
