@@ -24,6 +24,9 @@
 #include "../extensions/utils/parameterconfiguration.h"
 #include "../extensions/strategies/lowest-cost-strategy.hpp"
 
+#include "../extensions/tracers/push-tracer.hpp"
+#include "../extensions/tracers/ndn-l3-packet-tracer.hpp"
+
 using ns3::ndn::StrategyChoiceHelper;
 
 namespace ns3 {
@@ -37,7 +40,7 @@ main(int argc, char* argv[])
   // Parameters
   std::string queue = "DropTail_Bytes";
   std::string forwardingStrategy = "lowest-cost";
-  std::string logDir = "ndnSIM_2.3/scenario/results/";
+  std::string logDir = "results/";
   std::string approach = "push";
   std::string piRefreshFrequency = "2s";
   std::string linkErrorParam = "5";
@@ -94,11 +97,18 @@ main(int argc, char* argv[])
   int randomNodeNumber1 = rng->GetInteger(0, 11); // (0, number of nodes - 1)
   int randomNodeNumber2 = rng->GetInteger(0, 11); // (0, number of nodes - 1)
   int randomLinkNumbers[std::stoi(linkErrorParam)];
+  double linkFailureDurations[std::stoi(linkErrorParam)];
   
   for (int i = 0; i < std::stoi(linkErrorParam); ++i)
   {
     randomLinkNumbers[i] = rng->GetInteger(0, 14); // (0, number of links - 1)
     // std::cout << "randomLinkNumber_" << i << ": " << randomLinkNumbers[i] << std::endl;
+  }
+
+  for (int i = 0; i < std::stoi(linkErrorParam); ++i)
+  {
+    linkFailureDurations[i] = rng->GetInteger( std::stoi(linkFailureDuration) * (1.0 - std::stod(linkFailureDurationVariation)),
+                                               std::stoi(linkFailureDuration) * (1.0 + std::stod(linkFailureDurationVariation))); // (e.g. (200 * 0.8, 200 *1.2))
   }
 
   // Print parameters
@@ -229,6 +239,8 @@ main(int argc, char* argv[])
 
   // Simulate link failures
   uint32_t timeBetweenFailures = (simTime/1000) / std::stoi(linkErrorParam); // (Simtime in seconds) / (# of failures)
+
+  std::cout << "start time              connection                duration" << std::endl;
   for (int i = 0; i < std::stoi(linkErrorParam); ++i)
   {
     Ptr<Node> linkNode1;
@@ -257,10 +269,13 @@ main(int argc, char* argv[])
     Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures), 
       ndn::LinkControlHelper::FailLink, linkNode1, linkNode2);
     // Link up
-    Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures + std::stoi(linkFailureDuration)), 
+    Simulator::Schedule(Seconds(0.0 + i * timeBetweenFailures + linkFailureDurations[i]), 
       ndn::LinkControlHelper::UpLink, linkNode1, linkNode2);
 
-    std::cout << "FailureTime_" << i << ": " << (0.0 + i * timeBetweenFailures) << "      Node_" << linkNode1->GetId() << " --x-- Node_" << linkNode2->GetId() << std::endl;
+    std::cout << "Linkfailure_" << i << ": " << (0.0 + i * timeBetweenFailures) << "      Node_" 
+              << linkNode1->GetId() << " --x-- Node_" << linkNode2->GetId() << "      " << linkFailureDurations[i] << " [" 
+              << (std::stoi(linkFailureDuration) * (1.0 - std::stod(linkFailureDurationVariation))) << ", " 
+              << (std::stoi(linkFailureDuration) * (1.0 + std::stod(linkFailureDurationVariation))) << "]" << std::endl;  
   }
   std::cout << std::endl;
 
