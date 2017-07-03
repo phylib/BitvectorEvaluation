@@ -58,6 +58,16 @@ main(int argc, char* argv[])
   int rttTimeTableMaxDuration = 1000;
   std::string topologyFile = "scenarios/topologies/PIPS-topology.txt";
 
+  // Defining main prefixes
+  std::string prefixA = "/dst1";
+  std::string prefixB = "/dst2";
+
+  // Defining combined prefixes
+  std::string prefixA_App = prefixA + appSuffix;
+  std::string prefixA_Probe = prefixA + probeSuffix;
+  std::string prefixB_App = prefixB + appSuffix;
+  std::string prefixB_Probe = prefixB + probeSuffix;
+
   // Read Parameters
   CommandLine cmd;
   cmd.AddValue("queueName", "Name of the queue to use", queue);
@@ -84,14 +94,23 @@ main(int argc, char* argv[])
   // Set forwarding strategy parameters
   ParameterConfiguration::getInstance()->APP_SUFFIX = appSuffix;
   ParameterConfiguration::getInstance()->PROBE_SUFFIX = probeSuffix;
-  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", prefixOffset);
-  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", taintingEnabled);
-  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", minNumOfFacesForTainting);
-  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", maxTaintedProbesPercentage);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", requirementMaxDelay);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", requirementMaxLoss);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", requirementMinBandwidth);
-  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", rttTimeTableMaxDuration);
+  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", prefixOffset, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", taintingEnabled, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", minNumOfFacesForTainting, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", maxTaintedProbesPercentage, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", requirementMaxDelay, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", requirementMaxLoss, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", requirementMinBandwidth, prefixA);
+  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", rttTimeTableMaxDuration, prefixA);
+
+  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", prefixOffset, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", taintingEnabled, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", minNumOfFacesForTainting, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", maxTaintedProbesPercentage, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", requirementMaxDelay, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", requirementMaxLoss, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", requirementMinBandwidth, prefixB);
+  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", rttTimeTableMaxDuration, prefixB);
 
 
   // RNG handling
@@ -138,16 +157,6 @@ main(int argc, char* argv[])
   std::cout << "requirementMinBandwidth: " << requirementMinBandwidth << std::endl;
   std::cout << "rttTimeTableMaxDuration: " << rttTimeTableMaxDuration << std::endl;
   std::cout << std::endl;
-
-  // Defining main prefixes
-  std::string prefixA = "/dst1";
-  std::string prefixB = "/dst2";
-
-  // Defining combined prefixes
-  std::string prefixA_App = prefixA + appSuffix;
-  std::string prefixA_Probe = prefixA + probeSuffix;
-  std::string prefixB_App = prefixB + appSuffix;
-  std::string prefixB_Probe = prefixB + probeSuffix;
 
   // Read topology
   AnnotatedTopologyReader topologyReader("", 25);
