@@ -56,6 +56,7 @@ main(int argc, char* argv[])
   double requirementMaxLoss = 0.1;
   double requirementMinBandwidth = 0.0;
   int rttTimeTableMaxDuration = 1000;
+  std::string topologyFile = "scenarios/topologies/PIPS-topology.txt";
 
   // Read Parameters
   CommandLine cmd;
@@ -77,6 +78,7 @@ main(int argc, char* argv[])
   cmd.AddValue("requirementMaxLoss", "---", requirementMaxLoss);
   cmd.AddValue("requirementMinBandwidth", "---", requirementMinBandwidth);
   cmd.AddValue("rttTimeTableMaxDuration", "---", rttTimeTableMaxDuration);
+  cmd.AddValue("topologyFolder", "---", topologyFile);
   cmd.Parse(argc, argv);
 
   // Set forwarding strategy parameters
@@ -149,7 +151,7 @@ main(int argc, char* argv[])
 
   // Read topology
   AnnotatedTopologyReader topologyReader("", 25);
-  topologyReader.SetFileName("scenarios/topologies/PIPS-topology.txt");
+  topologyReader.SetFileName(topologyFile);
   topologyReader.Read();
 
   // Install NDN stack on all nodes
