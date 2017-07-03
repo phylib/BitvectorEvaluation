@@ -283,8 +283,8 @@ main(int argc, char* argv[])
   NodeContainer pushParticipants;
   pushParticipants.Add(nodeA);
   pushParticipants.Add(nodeB);
-  // ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
-  // ns3::ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
+  ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+  ns3::ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
 
 
   Simulator::Stop(MilliSeconds(simTime));
