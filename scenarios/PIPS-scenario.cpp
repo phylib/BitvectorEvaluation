@@ -48,12 +48,12 @@ main(int argc, char* argv[])
   std::string linkFailureDurationVariation = "0.2";
   std::string appSuffix = "/app";
   std::string probeSuffix = "/probe";
-  int prefixOffset = 2;
+  int prefixOffset = 1;
   int taintingEnabled = 1;
   int minNumOfFacesForTainting = 3;
   int maxTaintedProbesPercentage = 10;
   double requirementMaxDelay = 200.0;
-  double requirementMaxLoss = 0.1;
+  double requirementMaxLoss = 0.2;
   double requirementMinBandwidth = 0.0;
   int rttTimeTableMaxDuration = 1000;
   std::string topologyFile = "scenarios/topologies/PIPS-topology.txt";
