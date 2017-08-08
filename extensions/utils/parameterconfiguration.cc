@@ -37,6 +37,12 @@ void ParameterConfiguration::setParameter(std::string param_name, double value, 
 
 double ParameterConfiguration::getParameter(std::string param_name, std::string prefix)
 {
+
+  // Check if the given prefix is known, otherwise return values of the default prefix "/"
+  if (prefixMap.find(prefix) == prefixMap.end()) {
+    return prefixMap["/"][param_name];
+  }
+
   return prefixMap[prefix][param_name];
 }
 
