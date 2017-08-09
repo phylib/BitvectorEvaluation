@@ -141,11 +141,11 @@ VoIPProducer::OnInterest(shared_ptr<const Interest> interest)
       signatureInfo.setKeyLocator(m_keyLocator);
     }
 
-    // Recativate signature
-    //signature.setInfo(signatureInfo);
-    //signature.setValue(::ndn::nonNegativeIntegerBlock(::ndn::tlv::SignatureValue, m_signature));
+    signature.setInfo(signatureInfo);
+    signature.setValue(::ndn::makeNonNegativeIntegerBlock(::ndn::tlv::SignatureValue, m_signature));
 
-    //data->setSignature(signature);
+    data->setSignature(signature);
+
 
     NS_LOG_INFO("node(" << GetNode()->GetId() << ") responding with Data: " << data->getName());
 
