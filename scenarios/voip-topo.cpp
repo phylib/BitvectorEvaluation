@@ -73,7 +73,7 @@ main(int argc, char* argv[])
   std::string queue = "DropTail_Bytes";
   //std::string forwardingStrategy = "best-route";
   std::string forwardingStrategy = "lowest-cost";
-  std::string logDir = "/ndnSim/push-scenario/results/";
+  std::string logDir = "/ndnSim/scenario-push-2_3/results/";
   std::string approach = "push";
   std::string piRefreshFrequency = "2s";
   std::string linkErrorParam = "0";
