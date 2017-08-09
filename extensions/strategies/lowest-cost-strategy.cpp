@@ -379,7 +379,10 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
       NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
 
       // Forward NACK further back to the previous routers so they don't keep measurement data of the tainted Interest either.
-      this->sendNack(pitEntry, pitEntry->getInRecords().begin()->getFace(), nack.getHeader());
+      if (pitEntry->getInRecords().begin() != pitEntry->getInRecords().end()) {
+        this->sendNack(pitEntry, pitEntry->getInRecords().begin()->getFace(), nack.getHeader());
+        NFD_LOG_DEBUG("NACK forwarded to previous node");
+      }
   }
 }
 
