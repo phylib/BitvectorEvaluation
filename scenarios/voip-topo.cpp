@@ -348,7 +348,7 @@ main(int argc, char* argv[])
   pushParticipants.Add(server);
   pushParticipants.Add(client);
   if (approach.compare("standard") == 0) {
-    ndn::AppDelayTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+    //ndn::AppDelayTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
   } else {
     ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
   }
