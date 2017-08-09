@@ -53,6 +53,18 @@ saveCallInfo(std::string fname, std::vector<std::string> callVector)
   file.close();
 }
 
+void setParametersForPrefix(std::string prefix) 
+{
+  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 2, prefix);
+  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1, prefix);
+  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3, prefix);
+  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10, prefix);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0, prefix);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1, prefix);
+  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", 0.0, prefix);
+  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", 1000, prefix);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -79,16 +91,12 @@ main(int argc, char* argv[])
 
   std::string appSuffix = "/app";
   std::string probeSuffix = "/probe";
+
+  // Set forwarding strategy parameters
   ParameterConfiguration::getInstance()->APP_SUFFIX = appSuffix;
   ParameterConfiguration::getInstance()->PROBE_SUFFIX = probeSuffix;
-  ParameterConfiguration::getInstance()->setParameter("PREFIX_OFFSET", 2);
-  ParameterConfiguration::getInstance()->setParameter("TAINTING_ENABLED", 1);
-  ParameterConfiguration::getInstance()->setParameter("MIN_NUM_OF_FACES_FOR_TAINTING", 3);
-  ParameterConfiguration::getInstance()->setParameter("MAX_TAINTED_PROBES_PERCENTAGE", 10);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXDELAY", 200.0);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MAXLOSS", 0.1);
-  ParameterConfiguration::getInstance()->setParameter("REQUIREMENT_MINBANDWIDTH", 0.0);
-  ParameterConfiguration::getInstance()->setParameter("RTT_TIME_TABLE_MAX_DURATION", 1000);
+  ParameterConfiguration::getInstance()->PREFIX_OFFSET = 2;
+  setParametersForPrefix("/");
 
   if (!(approach.compare("push") == 0 || 
         approach.compare("prerequest") == 0 || 
@@ -211,24 +219,21 @@ main(int argc, char* argv[])
   ndn::StrategyChoiceHelper::InstallAll("/voip/", "/localhost/nfd/strategy/" + forwardingStrategy);
 
   // 6) Create Caller and Callee Applications
-  ndn::AppHelper calleeHelper("ns3::ndn::PushProducer") ; // Callee Helper for Push simulations
-  calleeHelper.SetAttribute("PayloadSize", StringValue("82"));
-  calleeHelper.SetAttribute("Frequency", StringValue("100"));
-  calleeHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
+  ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer") ; // Callee Helper for Push simulations
+  pushProducerHelper.SetAttribute("PayloadSize", StringValue("82"));
+  pushProducerHelper.SetAttribute("Frequency", StringValue("100"));
+  pushProducerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
 
   // Create Caller applications, uniformly distributed start times
-  ndn::AppHelper pushCallerHelper("ns3::ndn::PushConsumer"); // Caller helper for push
-  pushCallerHelper.SetAttribute("LifeTime", StringValue("5s"));
-  pushCallerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency));
-  pushCallerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
-  pushCallerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  ndn::AppHelper pushConsumerHelper("ns3::ndn::PushConsumer"); // Caller helper for push
+  pushConsumerHelper.SetAttribute("LifeTime", StringValue("5s"));
+  pushConsumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency));
+  pushConsumerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
+  pushConsumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
 
   ns3::ndn::AppHelper voipProducerHelper ("ns3::ndn::VoIPProducer"); // Callee for prerequest and standard approach
   voipProducerHelper.SetAttribute ("PayloadSize", StringValue("82"));
   voipProducerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice 
-
-  ndn::AppHelper probeProducerHelper("ns3::ndn::ProbeDataProducer");
-  probeProducerHelper.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
 
   ns3::ndn::AppHelper callerHelper ("ns3::ndn::VoipClientPre");
   //we assume voip packets (G.711) with 10ms speech per packet ==> 100 packets per second
@@ -240,6 +245,9 @@ main(int argc, char* argv[])
   } else if (approach.compare("standard") == 0) {
     callerHelper.SetAttribute ("LookaheadLiftime", IntegerValue(0)); //250ms
   } 
+
+  ndn::AppHelper probeProducerHelper("ns3::ndn::ProbeDataProducer");
+  probeProducerHelper.SetAttribute("PayloadSize", StringValue("1")); //bytes per probe data packet
 
   for(uint i=0; i<client.size (); i++)
   {
@@ -259,31 +267,33 @@ main(int argc, char* argv[])
 
       if (approach.compare("push") == 0) {
         // Install producer on caller-side
-        calleeHelper.SetPrefix(callerPrefix + appSuffix);
-        ApplicationContainer consumer = calleeHelper.Install(caller);
+        pushProducerHelper.SetPrefix(callerPrefix + appSuffix);
+        ApplicationContainer consumer = pushProducerHelper.Install(caller);
         // Install consumer on caller-side
-        pushCallerHelper.SetPrefix(calleePrefix + appSuffix);
-        consumer = pushCallerHelper.Install(caller);
+        pushConsumerHelper.SetPrefix(calleePrefix + appSuffix);
+        consumer = pushConsumerHelper.Install(caller);
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
 
         // Install producer on callee-side
-        calleeHelper.SetPrefix(calleePrefix + appSuffix);
-        consumer = calleeHelper.Install(callee);
+        pushProducerHelper.SetPrefix(calleePrefix + appSuffix);
+        consumer = pushProducerHelper.Install(callee);
         // Install consumer on callee-side
-        pushCallerHelper.SetPrefix(callerPrefix + appSuffix);
-        consumer = pushCallerHelper.Install (callee);
+        pushConsumerHelper.SetPrefix(callerPrefix + appSuffix);
+        consumer = pushConsumerHelper.Install (callee);
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
 
         if (forwardingStrategy.compare("lowest-cost") == 0) {
-          std::cout << callerPrefix + probeSuffix << std::endl;
-          probeProducerHelper.SetPrefix(callerPrefix + probeSuffix);
-          probeProducerHelper.Install (caller);
 
-          std::cout << calleePrefix + probeSuffix << std::endl;
+          setParametersForPrefix(callerPrefix);
+          setParametersForPrefix(calleePrefix);
+
+          probeProducerHelper.SetPrefix(callerPrefix + probeSuffix);
+          probeProducerHelper.Install(caller);
+
           probeProducerHelper.SetPrefix(calleePrefix + probeSuffix);
-          probeProducerHelper.Install (callee);
+          probeProducerHelper.Install(callee);
         }
 
       } else {

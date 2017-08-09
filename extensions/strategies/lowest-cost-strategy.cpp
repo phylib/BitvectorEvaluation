@@ -181,7 +181,8 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
   // Check if current working path underperforms
   if (currentDelay > delayLimit || currentLoss > lossLimit || currentBandwidth < bandwidthLimit)
   {
-    NFD_LOG_INFO("Current face underperforms: Face " << measurementMap[currentPrefix].currentWorkingFaceId << ", " << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
+    NFD_LOG_INFO("Current face underperforms: Face " << measurementMap[currentPrefix].currentWorkingFaceId << ", " 
+                  << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
     // Find potential alternative and get its performance
     FaceId alternativeOutFaceId = getAlternativeOutFaceId(measurementMap[currentPrefix].currentWorkingFaceId, nexthops);
     double alternativeDelay = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::DELAY); 
