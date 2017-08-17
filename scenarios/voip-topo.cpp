@@ -229,7 +229,13 @@ main(int argc, char* argv[])
   pushConsumerHelper.SetAttribute("LifeTime", StringValue("5s"));
   pushConsumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency));
   pushConsumerHelper.SetAttribute("QCI", UintegerValue(ndn::QCI_CLASSES::QCI_1)); // Set QCI to Conversational voice
-  pushConsumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  if (forwardingStrategy.compare("lowest-cost") == 0) {
+    // Activate probing for Lowest-Cost strategy
+    pushConsumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  } else {
+    // Disable probing for all other Forwarding Strategies
+    pushConsumerHelper.SetAttribute("ProbeFrequency", StringValue("0"));
+  }
 
   ns3::ndn::AppHelper voipProducerHelper ("ns3::ndn::VoIPProducer"); // Callee for prerequest and standard approach
   voipProducerHelper.SetAttribute ("PayloadSize", StringValue("82"));

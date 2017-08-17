@@ -141,6 +141,9 @@ PushConsumer::ScheduleNextPacket()
 void
 PushConsumer::ScheduleNextProbe()
 {
+  if (m_probeFrequency <= 0) {
+    return;
+  }
   m_sendEvent = Simulator::Schedule(Seconds(1.0 / m_probeFrequency), &PushConsumer::SendProbe, this);
 }
 
@@ -207,7 +210,9 @@ PushConsumer::SendPacket()
   interest->setName(*name);
   if (m_firstTime) {
     interest->setPush(true);
-    SendProbe();
+    if (m_probeFrequency > 0) {
+      SendProbe();
+    }
     m_firstTime = false;
   } else {
     if (m_use_refresh_pi.compare("true") == 0) {
