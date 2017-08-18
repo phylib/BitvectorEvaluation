@@ -305,19 +305,19 @@ main(int argc, char* argv[])
       } else {
 
         // Install producer on caller-side
-        voipProducerHelper.SetPrefix(callerPrefix);
+        voipProducerHelper.SetPrefix(callerPrefix + appSuffix);
         voipProducerHelper.Install(caller);
         // Install consumer on caller-side
-        callerHelper.SetPrefix(calleePrefix);
+        callerHelper.SetPrefix(calleePrefix + appSuffix);
         ApplicationContainer consumer = callerHelper.Install (caller);
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
 
         // Install producer on callee-side
-        voipProducerHelper.SetPrefix(calleePrefix);
+        voipProducerHelper.SetPrefix(calleePrefix + appSuffix);
         voipProducerHelper.Install(callee);
         // Install consumer on callee-side
-        callerHelper.SetPrefix(callerPrefix);
+        callerHelper.SetPrefix(callerPrefix + appSuffix);
         consumer = callerHelper.Install (callee);
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
