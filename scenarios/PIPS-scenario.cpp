@@ -218,7 +218,7 @@ main(int argc, char* argv[])
   consumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency));
   if (forwardingStrategy.compare("lowest-cost") == 0) {
     // Activate probing for Lowest-Cost strategy
-    consumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+    consumerHelper.SetAttribute("ProbeFrequency", StringValue("15")); // 15 probes per second
   } else {
     // Disable probing for all other Forwarding Strategies
     consumerHelper.SetAttribute("ProbeFrequency", StringValue("0"));
