@@ -216,7 +216,13 @@ main(int argc, char* argv[])
   ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
   consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
   consumerHelper.SetAttribute("PIRefreshInterval", StringValue(piRefreshFrequency));
-  consumerHelper.SetAttribute("ProbeFrequency", StringValue("30"));
+  if (forwardingStrategy.compare("lowest-cost") == 0) {
+    // Activate probing for Lowest-Cost strategy
+    pushConsumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  } else {
+    // Disable probing for all other Forwarding Strategies
+    pushConsumerHelper.SetAttribute("ProbeFrequency", StringValue("0"));
+  }
 
   ndn::AppHelper pushProducerHelper("ns3::ndn::PushProducer");
   pushProducerHelper.SetAttribute("Frequency", StringValue("100")); 
