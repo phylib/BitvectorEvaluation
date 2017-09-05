@@ -1,0 +1,23 @@
+router
+
+Prod0     NA     2    1
+Router1   NA     1    2
+Router2   NA     3    2
+Router3   NA     2    3
+Router4   NA     1    4
+Router5   NA     3    4
+Cons1     NA     3    5
+Cons2     NA     1    5
+
+link
+
+Prod0     Router1    1Mbps     1    10ms    10
+Prod0     Router2    1Mbps     1    10ms    10
+Router1   Router3    1Mbps     1    10ms    10
+Router2   Router3    1Mbps     1    10ms    10
+Router3   Router4    1Mbps     1    10ms    10
+Router3   Router5    1Mbps     1    10ms    10
+Router4   Cons1      1Mbps     1    10ms    10
+Router5   Cons1      1Mbps     1    10ms    10
+Router5   Cons2      1Mbps     1    10ms    10
+Router4   Cons2      1Mbps     1    10ms    10
