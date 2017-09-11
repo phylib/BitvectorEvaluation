@@ -35,6 +35,7 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
     ownStrategyChoice(forwarder.getStrategyChoice()),
     taintingCounter(1)
 {
+  NFD_LOG_DEBUG("Initialize Strategy");
   // Setting shared parameters
   PROBE_SUFFIX = ParameterConfiguration::getInstance()->PROBE_SUFFIX;
   PREFIX_OFFSET = ParameterConfiguration::getInstance()->PREFIX_OFFSET;
