@@ -77,6 +77,7 @@ main(int argc, char* argv[])
   std::string approach = "push";
   std::string piRefreshFrequency = "2s";
   std::string linkErrorParam = "0";
+  std::string skipLogging = "false";
 
   // Read Commandline Parameters
   CommandLine cmd;
@@ -87,6 +88,7 @@ main(int argc, char* argv[])
   cmd.AddValue("approach", "Approach to simulate (push|prerequest|standard). Default: push", approach);
   cmd.AddValue("piRefreshFrequency", "Number of Refresh Persistent Interests per Second", piRefreshFrequency);
   cmd.AddValue("linkErrors", "Number of link errors during simulation", linkErrorParam);
+  cmd.AddValue("skipLogging", "No logging when parameter is true", skipLogging);
   cmd.Parse(argc, argv);
 
   std::string appSuffix = "/app";
@@ -350,18 +352,20 @@ main(int argc, char* argv[])
   }
 
   // 8) Configure Traces
-  NodeContainer pushParticipants;
-  pushParticipants.Add(server);
-  pushParticipants.Add(client);
-  if (approach.compare("standard") == 0) {
-    //ndn::AppDelayTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
-  } else {
-    ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+  if (approach.compare("false") == 0) {
+    NodeContainer pushParticipants;
+    pushParticipants.Add(server);
+    pushParticipants.Add(client);
+    if (approach.compare("standard") == 0) {
+      //ndn::AppDelayTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+    } else {
+      ns3::ndn::PushTracer::Install(pushParticipants, std::string(logDir + "push-trace.txt"));
+    }
+    ndn::L3RateTracer::Install(pushParticipants, std::string(logDir + "push-rate-trace.txt"), Seconds(600.0));
+    ndn::AppDelayTracer::Install(dataClient, std::string(logDir + "data-trace.txt"));
+    ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
+    L2RateTracer::InstallAll("drop-trace.txt", Seconds(1));
   }
-  ndn::L3RateTracer::Install(pushParticipants, std::string(logDir + "push-rate-trace.txt"), Seconds(600.0));
-  ndn::AppDelayTracer::Install(dataClient, std::string(logDir + "data-trace.txt"));
-  ndn::L3PacketTracer::InstallAll(std::string(logDir + "packet-trace.txt"));
-  L2RateTracer::InstallAll("drop-trace.txt", Seconds(1));
 
 
   // Calculate and install FIBs
