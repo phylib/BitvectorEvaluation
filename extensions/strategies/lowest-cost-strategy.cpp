@@ -76,8 +76,15 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
     // Determine best outFace (could be another one than currentBestOutFace)
+    FaceId currentWorkingFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
     measurementMap[currentPrefix].currentWorkingFaceId = lookForBetterOutFaceId(nexthops, pitEntry, currentPrefix);
     selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
+
+    // When the current working face is changed, the old face needs to be torn down
+    if (currentWorkingFaceId != selectedOutFaceId) {
+      NFD_LOG_INFO("Mark face " << currentWorkingFaceId << " as pending teardown: " << currentPrefix);
+      measurementMap[currentPrefix].pendingTeardowns.insert(currentWorkingFaceId);
+    }
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
@@ -352,7 +359,27 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
     }
 
 
-  } 
+  } else {
+    // Check if pending teardown needs to be send
+    if (!measurementMap[currentPrefix].pendingTeardowns.empty() 
+        && inFace.getId() == measurementMap[currentPrefix].currentWorkingFaceId) {
+
+      for (auto pendingFaceId : measurementMap[currentPrefix].pendingTeardowns) {
+        NFD_LOG_DEBUG("Sending Teardown " << pitEntry->getInterest().getName() << " to face " << pendingFaceId);
+
+        // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
+        lp::NackHeader nackHeader;
+        nackHeader.setReason(lp::NackReason::PI_TEARDOWN);
+
+        // Fetch out-face by ID from FIB and send NACK
+        const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
+        const fib::NextHopList& nexthops = fibEntry.getNextHops();
+        this->sendNack(pitEntry, getFaceViaId(pendingFaceId, nexthops), nackHeader);
+
+      }
+
+    }
+  }
 }
 
 void 
@@ -370,20 +397,31 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
 
   if (nack.getReason() == lp::NackReason::TAINTED)
   {
-      /*
-       * Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets'). 
-       * Delay: Just dont calculate rtt, entries will drop out of the custom list on their own
-       * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
-       * Bandwith: Omit "addSatisfiedInterest"
-       */ 
-      measurementMap[currentPrefix].faceInfoMap[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
-      NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
+    /*
+     * Cancel measurements for tainted data packet (so that measurements are not skewed by 'missing packtets'). 
+     * Delay: Just dont calculate rtt, entries will drop out of the custom list on their own
+     * Loss: Omit "addSatisfiedInterest" and remove the corresponding entry from the estimator
+     * Bandwith: Omit "addSatisfiedInterest"
+     */ 
+    measurementMap[currentPrefix].faceInfoMap[inFace.getId()].removeSentInterest(pitEntry->getInterest().getName().toUri());
+    NFD_LOG_INFO("Removed measurements for " << pitEntry->getInterest().getName());
 
-      // Forward NACK further back to the previous routers so they don't keep measurement data of the tainted Interest either.
-      if (pitEntry->getInRecords().begin() != pitEntry->getInRecords().end()) {
-        this->sendNack(pitEntry, pitEntry->getInRecords().begin()->getFace(), nack.getHeader());
-        NFD_LOG_DEBUG("NACK forwarded to previous node");
-      }
+    // Forward NACK further back to the previous routers so they don't keep measurement data of the tainted Interest either.
+    if (pitEntry->getInRecords().begin() != pitEntry->getInRecords().end()) {
+      this->sendNack(pitEntry, pitEntry->getInRecords().begin()->getFace(), nack.getHeader());
+      NFD_LOG_DEBUG("NACK forwarded to previous node");
+    }
+
+  } else if (nack.getReason() == lp::NackReason::PI_TEARDOWN) {
+
+    // Remove In Record
+    pitEntry->deleteInRecord(inFace);
+    NFD_LOG_INFO("Removed InFace " << inFace << " for PitEntry " << pitEntry->getInterest().getName());
+
+    // If no other in-record exists, forward NACK
+    if (pitEntry->getInRecords().empty()) {
+      this->sendNack(pitEntry, pitEntry->getOutRecords().begin()->getFace(), nack.getHeader());
+    }
   }
 }
 

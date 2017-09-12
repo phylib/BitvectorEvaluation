@@ -111,7 +111,7 @@ main(int argc, char* argv[])
 
   // Consumer1
   ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer");
-  consumerHelper.SetAttribute("PIRefreshInterval", StringValue("4")); // 1 interests every 4 seconds
+  consumerHelper.SetAttribute("PIRefreshInterval", StringValue("2")); // 1 interests every 4 seconds
   consumerHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
   consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
   consumerHelper.SetPrefix(prefix1App);
@@ -130,13 +130,13 @@ main(int argc, char* argv[])
   ProbeProducerHelper.SetPrefix(prefix1Probe);
   ProbeProducerHelper.Install(producer1);
 
-  // Consumer2
-  ndn::AppHelper consumerTestHelper("ns3::ndn::PushConsumer");
-  consumerTestHelper.SetAttribute("PIRefreshInterval", StringValue("4")); // 1 interests every 4 seconds
-  consumerTestHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
-  consumerTestHelper.SetAttribute("LifeTime", StringValue("5s"));
-  consumerTestHelper.SetPrefix(prefix2App);
-  consumerTestHelper.Install(consumer2); 
+  // // Consumer2
+  // ndn::AppHelper consumerTestHelper("ns3::ndn::PushConsumer");
+  // consumerTestHelper.SetAttribute("PIRefreshInterval", StringValue("4")); // 1 interests every 4 seconds
+  // consumerTestHelper.SetAttribute("ProbeFrequency", StringValue("30")); // 30 probes per second
+  // consumerTestHelper.SetAttribute("LifeTime", StringValue("5s"));
+  // consumerTestHelper.SetPrefix(prefix2App);
+  // consumerTestHelper.Install(consumer2); 
 
   // Producer2 
   ndn::AppHelper TrafficProducerHelper("ns3::ndn::PushProducer");
@@ -165,14 +165,14 @@ main(int argc, char* argv[])
   // Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::UpLink, 
     // Names::Find<Node>("Cons2"), Names::Find<Node>("NodeA"));
 
-  Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::FailLink, 
-    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
-  Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::FailLink, 
-    Names::Find<Node>("NodeE"), Names::Find<Node>("NodeH"));
-  Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
-    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
-  Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::FailLink, 
-    Names::Find<Node>("NodeF"), Names::Find<Node>("NodeI"));
+  Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::setErrorRate, 
+    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"), 0.5);
+  // Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::FailLink, 
+  //   Names::Find<Node>("NodeE"), Names::Find<Node>("NodeH"));
+  // Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
+  //   Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
+  // Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::FailLink, 
+  //   Names::Find<Node>("NodeF"), Names::Find<Node>("NodeI"));
   Simulator::Stop(Seconds(60.0));
 
   // Tracer
