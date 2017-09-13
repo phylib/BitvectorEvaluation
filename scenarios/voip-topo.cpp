@@ -352,7 +352,7 @@ main(int argc, char* argv[])
   }
 
   // 8) Configure Traces
-  if (approach.compare("false") == 0) {
+  if (skipLogging.compare("false") == 0) {
     NodeContainer pushParticipants;
     pushParticipants.Add(server);
     pushParticipants.Add(client);
