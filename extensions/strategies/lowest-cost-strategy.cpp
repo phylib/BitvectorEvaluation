@@ -365,18 +365,23 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
         && inFace.getId() == measurementMap[currentPrefix].currentWorkingFaceId) {
 
       for (auto pendingFaceId : measurementMap[currentPrefix].pendingTeardowns) {
-        NFD_LOG_DEBUG("Sending Teardown " << pitEntry->getInterest().getName() << " to face " << pendingFaceId);
+        // Do not sent Teardown on the current working path
+        if (pendingFaceId != measurementMap[currentPrefix].currentWorkingFaceId) {
+          NFD_LOG_DEBUG("Sending Teardown " << pitEntry->getInterest().getName() << " to face " << pendingFaceId);
 
-        // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
-        lp::NackHeader nackHeader;
-        nackHeader.setReason(lp::NackReason::PI_TEARDOWN);
+          // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
+          lp::NackHeader nackHeader;
+          nackHeader.setReason(lp::NackReason::PI_TEARDOWN);
 
-        // Fetch out-face by ID from FIB and send NACK
-        const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
-        const fib::NextHopList& nexthops = fibEntry.getNextHops();
-        this->sendNack(pitEntry, getFaceViaId(pendingFaceId, nexthops), nackHeader);
+          // Fetch out-face by ID from FIB and send NACK
+          const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
+          const fib::NextHopList& nexthops = fibEntry.getNextHops();
+          this->sendNack(pitEntry, getFaceViaId(pendingFaceId, nexthops), nackHeader);
+        }
 
       }
+      // Clear pending Teardowns after sending them
+      measurementMap[currentPrefix].pendingTeardowns.clear();
 
     }
   }
@@ -420,6 +425,7 @@ LowestCostStrategy::afterReceiveNack( const Face& inFace,
 
     // If no other in-record exists, forward NACK
     if (pitEntry->getInRecords().empty()) {
+      NFD_LOG_DEBUG("NACK forwarded to previous node");
       this->sendNack(pitEntry, pitEntry->getOutRecords().begin()->getFace(), nack.getHeader());
     }
   }
