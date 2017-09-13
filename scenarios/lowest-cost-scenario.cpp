@@ -167,12 +167,12 @@ main(int argc, char* argv[])
 
   Simulator::Schedule(Seconds(10.0), ndn::LinkControlHelper::setErrorRate, 
     Names::Find<Node>("NodeG"), Names::Find<Node>("End2"), 0.5);
-  // Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeE"), Names::Find<Node>("NodeH"));
-  // Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
-  //   Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
-  // Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::FailLink, 
-  //   Names::Find<Node>("NodeF"), Names::Find<Node>("NodeI"));
+  Simulator::Schedule(Seconds(20.0), ndn::LinkControlHelper::setErrorRate, 
+    Names::Find<Node>("NodeE"), Names::Find<Node>("NodeH"), 0.5);
+  Simulator::Schedule(Seconds(25.0), ndn::LinkControlHelper::UpLink, 
+    Names::Find<Node>("NodeG"), Names::Find<Node>("End2"));
+  Simulator::Schedule(Seconds(30.0), ndn::LinkControlHelper::setErrorRate, 
+    Names::Find<Node>("NodeF"), Names::Find<Node>("NodeI"), 0.5);
   Simulator::Stop(Seconds(60.0));
 
   // Tracer
