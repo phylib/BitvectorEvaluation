@@ -132,6 +132,30 @@ private:
   void refreshParameters(std::string currentPrefix) ;
 
 private:
+  /**
+   * To ensure that the entropy of an unkown face is high, the vector has to be set filled with
+   * balanced values in the beginning.
+   */
+  void
+  initializeOrUpdateLastValues(std::string currentPrefix, FaceId faceId, double value) {
+
+    // Initialize
+    if (measurementMap[currentPrefix].lastValues.find(faceId) == measurementMap[currentPrefix].lastValues.end()) {
+
+      std::list<double> emptyLastValues;
+      for (int i = 0; i < LAST_VALUES_VECTOR_LENGTH; i++) {
+        emptyLastValues.push_back((i % 10) * 0.1);
+      }
+      measurementMap[currentPrefix].lastValues[faceId] = emptyLastValues;
+    }
+
+    // Update
+    measurementMap[currentPrefix].lastValues[faceId].pop_back();
+    measurementMap[currentPrefix].lastValues[faceId].push_front(value);
+
+  }
+
+private:
   StrategyChoice& ownStrategyChoice;
 
   // Class variables for all the relevant parameters in ParameterConfiguration (for more readable code)
@@ -145,6 +169,7 @@ private:
   double REQUIREMENT_MINBANDWIDTH;
   double HYSTERESIS_PERCENTAGE;
   time::nanoseconds RTT_TIME_TABLE_MAX_DURATION; 
+  int LAST_VALUES_VECTOR_LENGTH;
   
   // Simple counter used in taintingAllowed().
   int taintingCounter; 

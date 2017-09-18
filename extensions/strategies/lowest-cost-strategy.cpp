@@ -297,6 +297,7 @@ void LowestCostStrategy::refreshParameters(std::string currentPrefix)
   REQUIREMENT_MINBANDWIDTH = ParameterConfiguration::getInstance()->getParameter("REQUIREMENT_MINBANDWIDTH", currentPrefix);
   HYSTERESIS_PERCENTAGE = ParameterConfiguration::getInstance()->getParameter("HYSTERESIS_PERCENTAGE", currentPrefix);
   RTT_TIME_TABLE_MAX_DURATION = time::milliseconds((int)ParameterConfiguration::getInstance()->getParameter("RTT_TIME_TABLE_MAX_DURATION", currentPrefix));
+  LAST_VALUES_VECTOR_LENGTH = 10;
 }
 
 
@@ -396,6 +397,10 @@ LowestCostStrategy::afterReceiveProbeData(const shared_ptr<pit::Entry>& pitEntry
         (time::steady_clock::now()-it->second > RTT_TIME_TABLE_MAX_DURATION) ? it=measurementMap[currentPrefix].rttTimeMap.erase(it) : it++ ;
       } 
     }   
+
+    double currentLoss = measurementMap[currentPrefix].faceInfoMap[inFace.getId()].getCurrentValue(RequirementType::LOSS);
+    currentLoss = ((int)(currentLoss * 10))/10.0; // convert to bin value
+    LowestCostStrategy::initializeOrUpdateLastValues(currentPrefix, inFace.getId(), currentLoss);
   }    
   else 
   {
