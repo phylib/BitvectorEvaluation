@@ -315,76 +315,96 @@ void LowestCostStrategy::beforeSatisfyInterest( const shared_ptr<pit::Entry>& pi
   // Check if incoming data is probe data
   if (data.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
-    // Check if it's an answer to one of the probes tainted by this router
-    auto myTaintedProbesIterator = measurementMap[currentPrefix].myTaintedProbes.find(data.getName().toUri());
-    bool taintedByThisRouter = (myTaintedProbesIterator != measurementMap[currentPrefix].myTaintedProbes.end()) ? true : false;
-
-    // Check if usable for measurement (tainted by this router or not tainted at all)
-    if (taintedByThisRouter || !data.isTainted())
-    {
-      if (taintedByThisRouter)
-      {
-        // Forget about the corresponding tainted probe (since it is satisfied now)
-        measurementMap[currentPrefix].myTaintedProbes.erase(myTaintedProbesIterator);
-        NFD_LOG_INFO("Removed " << data.getName() << "from myTaintedProbes.");
-
-        // @todo: Find a way to stop the data packet from being forwarded any further.
-      }
-      // Inform loss estimator
-      InterfaceEstimation& faceInfo = measurementMap[currentPrefix].faceInfoMap[inFace.getId()];
-      faceInfo.addSatisfiedInterest(data.getContent().value_size(), data.getName().toUri());
-      pit::OutRecordCollection::const_iterator outRecord = pitEntry->getOutRecord(inFace);
-
-      // Check if not already satisfied by another upstream
-      if (!pitEntry->getInRecords().empty() && outRecord != pitEntry->getOutRecords().end()) 
-      {
-        // There is an in and outrecord --> inform RTT estimator
-        time::steady_clock::Duration rtt = time::steady_clock::now() - measurementMap[currentPrefix].rttTimeMap[data.getName().toUri()];
-        faceInfo.addRttMeasurement(time::duration_cast < time::microseconds > (rtt));
-        measurementMap[currentPrefix].rttTimeMap.erase(data.getName().toUri()); 
-
-        // Delete every entry in rttTimeMap that is older than a certain threshold.
-        for ( auto it = measurementMap[currentPrefix].rttTimeMap.begin(); it != measurementMap[currentPrefix].rttTimeMap.end();) 
-        {
-          (time::steady_clock::now()-it->second > RTT_TIME_TABLE_MAX_DURATION) ? it=measurementMap[currentPrefix].rttTimeMap.erase(it) : it++ ;
-        } 
-      }   
-    }    
-    else 
-    {
-      /*
-      * @todo: Find a way to determine if this router is before or after the "tainter", since it could theoretically 
-      *        use tainted probes for measurement as long as it is a router after the tainter.
-      */
-    }
-
-
+    afterReceiveProbeData(pitEntry, inFace, data);
   } else {
-    // Check if pending teardown needs to be send
-    if (!measurementMap[currentPrefix].pendingTeardowns.empty() 
-        && inFace.getId() == measurementMap[currentPrefix].currentWorkingFaceId) {
+    afterReceiveData(pitEntry, inFace, data);
+  }
+}
 
-      for (auto pendingFaceId : measurementMap[currentPrefix].pendingTeardowns) {
-        // Do not sent Teardown on the current working path
-        if (pendingFaceId != measurementMap[currentPrefix].currentWorkingFaceId) {
-          NFD_LOG_DEBUG("Sending Teardown " << pitEntry->getInterest().getName() << " to face " << pendingFaceId);
+void
+LowestCostStrategy::afterReceiveData(const shared_ptr<pit::Entry>& pitEntry, const Face& inFace, const Data& data)
+{
+  // Get the current prefix from the data name
+  std::string currentPrefix = data.getName().getPrefix(PREFIX_OFFSET).toUri();
 
-          // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
-          lp::NackHeader nackHeader;
-          nackHeader.setReason(lp::NackReason::PI_TEARDOWN);
+  // Check if pending teardown needs to be send
+  if (!measurementMap[currentPrefix].pendingTeardowns.empty() 
+      && inFace.getId() == measurementMap[currentPrefix].currentWorkingFaceId) {
 
-          // Fetch out-face by ID from FIB and send NACK
-          const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
-          const fib::NextHopList& nexthops = fibEntry.getNextHops();
-          this->sendNack(pitEntry, getFaceViaId(pendingFaceId, nexthops), nackHeader);
-        }
+    for (auto pendingFaceId : measurementMap[currentPrefix].pendingTeardowns) {
+      // Do not sent Teardown on the current working path
+      if (pendingFaceId != measurementMap[currentPrefix].currentWorkingFaceId) {
+        NFD_LOG_DEBUG("Sending Teardown " << pitEntry->getInterest().getName() << " to face " << pendingFaceId);
 
+        // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
+        lp::NackHeader nackHeader;
+        nackHeader.setReason(lp::NackReason::PI_TEARDOWN);
+
+        // Fetch out-face by ID from FIB and send NACK
+        const fib::Entry& fibEntry = this->lookupFib(*pitEntry);
+        const fib::NextHopList& nexthops = fibEntry.getNextHops();
+        this->sendNack(pitEntry, getFaceViaId(pendingFaceId, nexthops), nackHeader);
       }
-      // Clear pending Teardowns after sending them
-      measurementMap[currentPrefix].pendingTeardowns.clear();
 
     }
+    // Clear pending Teardowns after sending them
+    measurementMap[currentPrefix].pendingTeardowns.clear();
+
   }
+
+}
+
+void
+LowestCostStrategy::afterReceiveProbeData(const shared_ptr<pit::Entry>& pitEntry, const Face& inFace, const Data& data)
+{
+
+
+  // Get the current prefix from the data name
+  std::string currentPrefix = data.getName().getPrefix(PREFIX_OFFSET).toUri();
+
+  // Check if it's an answer to one of the probes tainted by this router
+  auto myTaintedProbesIterator = measurementMap[currentPrefix].myTaintedProbes.find(data.getName().toUri());
+  bool taintedByThisRouter = (myTaintedProbesIterator != measurementMap[currentPrefix].myTaintedProbes.end()) ? true : false;
+
+  // Check if usable for measurement (tainted by this router or not tainted at all)
+  if (taintedByThisRouter || !data.isTainted())
+  {
+    if (taintedByThisRouter)
+    {
+      // Forget about the corresponding tainted probe (since it is satisfied now)
+      measurementMap[currentPrefix].myTaintedProbes.erase(myTaintedProbesIterator);
+      NFD_LOG_INFO("Removed " << data.getName() << "from myTaintedProbes.");
+
+      // @todo: Find a way to stop the data packet from being forwarded any further.
+    }
+    // Inform loss estimator
+    InterfaceEstimation& faceInfo = measurementMap[currentPrefix].faceInfoMap[inFace.getId()];
+    faceInfo.addSatisfiedInterest(data.getContent().value_size(), data.getName().toUri());
+    pit::OutRecordCollection::const_iterator outRecord = pitEntry->getOutRecord(inFace);
+
+    // Check if not already satisfied by another upstream
+    if (!pitEntry->getInRecords().empty() && outRecord != pitEntry->getOutRecords().end()) 
+    {
+      // There is an in and outrecord --> inform RTT estimator
+      time::steady_clock::Duration rtt = time::steady_clock::now() - measurementMap[currentPrefix].rttTimeMap[data.getName().toUri()];
+      faceInfo.addRttMeasurement(time::duration_cast < time::microseconds > (rtt));
+      measurementMap[currentPrefix].rttTimeMap.erase(data.getName().toUri()); 
+
+      // Delete every entry in rttTimeMap that is older than a certain threshold.
+      for ( auto it = measurementMap[currentPrefix].rttTimeMap.begin(); it != measurementMap[currentPrefix].rttTimeMap.end();) 
+      {
+        (time::steady_clock::now()-it->second > RTT_TIME_TABLE_MAX_DURATION) ? it=measurementMap[currentPrefix].rttTimeMap.erase(it) : it++ ;
+      } 
+    }   
+  }    
+  else 
+  {
+    /*
+    * @todo: Find a way to determine if this router is before or after the "tainter", since it could theoretically 
+    *        use tainted probes for measurement as long as it is a router after the tainter.
+    */
+  }
+  
 }
 
 void 

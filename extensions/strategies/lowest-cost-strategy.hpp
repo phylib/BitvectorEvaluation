@@ -65,6 +65,14 @@ public:
 
   static const Name STRATEGY_NAME;
 
+protected:
+
+  virtual void
+  afterReceiveData(const shared_ptr<pit::Entry>& pitEntry, const Face& inFace, const Data& data);
+
+  virtual void
+  afterReceiveProbeData(const shared_ptr<pit::Entry>& pitEntry, const Face& inFace, const Data& data);
+
 private:
 
   /**
