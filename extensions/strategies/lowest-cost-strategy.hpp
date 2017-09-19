@@ -31,8 +31,10 @@
 #include "fw/interface-estimation.hpp"
 #include <math.h>
 
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/uniform_real_distribution.hpp>
+//#include <boost/random/mersenne_twister.hpp>
+//#include <boost/random/uniform_real_distribution.hpp>
+
+#include "ns3/random-variable-stream.h"
 
 namespace nfd {
 namespace fw {
@@ -209,6 +211,12 @@ protected:
     return entropy;
   }
 
+  uint64_t
+  simpleEntropyBasedStuff(const std::string currentPrefix, const FaceId currentOutFace, const std::vector<uint64_t> alternatives);
+
+  uint64_t
+  getAlternativeOutFaceId(const std::string currentPrefix, const FaceId inFace, const FaceId currentOutFace, const std::vector<uint64_t> nexthops);
+
 
 
 private:
@@ -233,7 +241,8 @@ private:
   // A map containing measurements for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;
 
-  boost::random::mt19937 m_randomGenerator;
+  //ns3::Ptr<ns3::UniformRandomVariable> rvariable;
+  ::ns3::Ptr<::ns3::UniformRandomVariable> randomVariable;
 };
 
 }  // namespace fw

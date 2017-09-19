@@ -39,6 +39,7 @@ LowestCostStrategy::LowestCostStrategy(Forwarder& forwarder, const Name& name)
   // Setting shared parameters
   PROBE_SUFFIX = ParameterConfiguration::getInstance()->PROBE_SUFFIX;
   PREFIX_OFFSET = ParameterConfiguration::getInstance()->PREFIX_OFFSET;
+  randomVariable = ::ns3::CreateObject<::ns3::UniformRandomVariable>();
 }
 
 void LowestCostStrategy::afterReceiveInterest(const Face& inFace, 
@@ -81,32 +82,49 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
     selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
 
     // When the current working face is changed, the old face needs to be torn down
-    if (currentWorkingFaceId != selectedOutFaceId) {
+    // Todo: Reactivate Teardowns
+    /*if (currentWorkingFaceId != selectedOutFaceId) {
       NFD_LOG_INFO("Mark face " << currentWorkingFaceId << " as pending teardown: " << currentPrefix);
       measurementMap[currentPrefix].pendingTeardowns.insert(currentWorkingFaceId);
-    }
+    }*/
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
     {
-      // Check if there is more than one outFace (no need to redirect if no alternatives available)
-      if (nexthops.size() >= MIN_NUM_OF_FACES_FOR_TAINTING)
-      {
-        // Check if this router is allowed to use this probe for monitoring alternative routes 
-        if (taintingAllowed() && TAINTING_ENABLED)
-        {
+
+      // Check if this router is allowed to use this probe for monitoring alternative routes
+      if (TAINTING_ENABLED) {
+
+        std::vector<uint64_t> outFaces;
+        for (auto nh : nexthops) {
+          if (nh.getFace().getId() == inFace.getId() || nh.getFace().getId() == selectedOutFaceId) {
+            continue;
+          }
+          outFaces.push_back(nh.getFace().getId());
+        }
+
+        //uint64_t alternativeOutFace = getAlternativeOutFaceId(currentPrefix, inFace.getId(), selectedOutFaceId, outFaces);
+        uint64_t alternativeOutFace = simpleEntropyBasedStuff(currentPrefix, selectedOutFaceId, outFaces);
+        NFD_LOG_DEBUG("Test");
+        std::cout << "Test" << std::endl;
+
+        if (alternativeOutFace != selectedOutFaceId) {
+          NFD_LOG_INFO("Test in If");
+           std::cout << "Test in If" << std::endl;
+
           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
           // NOTE: const_cast is a hack and should generally be avoided!
           Interest& nonConstInterest = const_cast<Interest&>(interest);
           nonConstInterest.setTainted(true);
 
           NFD_LOG_INFO("Tainted this interest: " << interest.getName());
+           std::cout << "Tainted this interest: " << interest.getName() << std::endl;
 
           // Remember that this probe was tainted by this router, so the corresponding data can be recognized
           measurementMap[currentPrefix].myTaintedProbes.insert(interest.getName().toUri());
 
           // Prepare an alternative path for the probe 
-          selectedOutFaceId = getAlternativeOutFaceId(measurementMap[currentPrefix].currentWorkingFaceId, nexthops);   
+          selectedOutFaceId = alternativeOutFace;
 
           // Send a NACK back to the previous routers so they don't keep measurement data of the tainted Interest 
           lp::NackHeader nackHeader;
@@ -119,8 +137,11 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           // NOTE: const_cast is a hack and should generally be avoided!
           Face& nonConstInFace = const_cast<Face&> (inFace);
           pitEntry->insertOrUpdateInRecord(nonConstInFace, interest);
+          
         }
+        NFD_LOG_INFO("Test after if");
       }
+
       // Save the probe's sending time in a map for later calculations of rtt. 
       // This is a workaround since "outRecord->getLastRenewed()" somehow doesn't provide the right value. 
       measurementMap[currentPrefix].rttTimeMap[interest.getName().toUri()] = time::steady_clock::now(); 
@@ -129,6 +150,8 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       measurementMap[currentPrefix].faceInfoMap[selectedOutFaceId].addSentInterest(interest.getName().toUri()); 
     }
   } 
+
+  NFD_LOG_DEBUG("Method intermediate");
 
   // Check if chosen face is the face the interest came from
   if (selectedOutFaceId == inFace.getId())
@@ -157,6 +180,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // std::cout << std::endl;
 
 
+  NFD_LOG_DEBUG("Method ended");
 
   return;
 }
@@ -222,6 +246,59 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
   // If current path performs well enough, just stay on it.
   NFD_LOG_INFO("Current working path performs well enough. Staying on it. " << measurementMap[currentPrefix].currentWorkingFaceId);
   return measurementMap[currentPrefix].currentWorkingFaceId;
+}
+
+uint64_t
+LowestCostStrategy::getAlternativeOutFaceId(const std::string currentPrefix, 
+                                            const FaceId inFace,
+                                            const FaceId currentOutFace, 
+                                            const std::vector<uint64_t> nexthops)
+{
+  NFD_LOG_DEBUG("getAlternativeOutFaceId for  " << currentPrefix << "; currentOutFace=" << currentOutFace);
+  // Check if there is more than one outFace (no need to redirect if no alternatives available)
+  //boost::random::uniform_real_distribution<> dist(0, 1);
+
+  std::vector<uint64_t> nh_vector;
+  nh_vector.push_back(currentOutFace);
+  for (uint64_t nh : nexthops) {
+    if (nh != inFace && nh != currentOutFace) {
+      nh_vector.push_back(nh);
+    }
+  }
+
+  for (uint64_t nh : nh_vector) {
+    // Calculate the entropy of the current face
+    double entropy_norm = getNormalizedEntropy(currentPrefix, nh);
+
+    // Redirect probe only if (random_num < 0.5 - (0.5 * entropy_norm)). 
+    //double rand = rvariable->GetValue (0, 1);
+
+    double rand = randomVariable->GetValue ();
+    NFD_LOG_DEBUG("RandomNumber=" << rand);
+    if (rand >= 0.5 - (0.5 * entropy_norm)) {
+      NFD_LOG_DEBUG("Alternative found: face=" << nh);
+      return nh;
+    }
+  }
+
+  NFD_LOG_DEBUG("No Alternative found: default-face=" << currentOutFace);
+  return currentOutFace;
+}
+
+uint64_t
+LowestCostStrategy::simpleEntropyBasedStuff(const std::string currentPrefix, const FaceId currentOutFace, const std::vector<uint64_t> alternatives)
+{
+  if (alternatives.empty()) {
+    return currentOutFace;
+  }
+  
+  double entropy = getNormalizedEntropy(currentPrefix, currentOutFace);
+  double rand = randomVariable->GetValue();
+  if (rand < 0.5 - (0.5 * entropy)) {
+    return alternatives[0];
+  }
+
+  return currentOutFace;
 }
 
 
@@ -399,7 +476,6 @@ LowestCostStrategy::afterReceiveProbeData(const shared_ptr<pit::Entry>& pitEntry
     }   
 
     double currentLoss = measurementMap[currentPrefix].faceInfoMap[inFace.getId()].getCurrentValue(RequirementType::LOSS);
-    currentLoss = ((int)(currentLoss * 10))/10.0; // convert to bin value
     LowestCostStrategy::initializeOrUpdateLastValues(currentPrefix, inFace.getId(), currentLoss);
   }    
   else 
