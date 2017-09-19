@@ -29,6 +29,10 @@
 #include "fw/forwarder.hpp"
 #include "fw/strategy-requirements.hpp"
 #include "fw/interface-estimation.hpp"
+#include <math.h>
+
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 namespace nfd {
 namespace fw {
@@ -131,29 +135,81 @@ private:
    */
   void refreshParameters(std::string currentPrefix) ;
 
-private:
+protected:
   /**
    * To ensure that the entropy of an unkown face is high, the vector has to be set filled with
    * balanced values in the beginning.
+   *
+   * @param currentPrefix 
+   * @param faceId
+   * @param value Current loss value. It is converted to the alphabet in this method
    */
   void
   initializeOrUpdateLastValues(std::string currentPrefix, FaceId faceId, double value) {
 
     // Initialize
     if (measurementMap[currentPrefix].lastValues.find(faceId) == measurementMap[currentPrefix].lastValues.end()) {
-
-      std::list<double> emptyLastValues;
-      for (int i = 0; i < LAST_VALUES_VECTOR_LENGTH; i++) {
-        emptyLastValues.push_back((i % 10) * 0.1);
-      }
-      measurementMap[currentPrefix].lastValues[faceId] = emptyLastValues;
+      initilizeLastValues(currentPrefix, faceId);
     }
+
+    // Convert value to the alphabet (10 values from 0 to 1)
+    value = ((int)(value * 10))/10.0;
 
     // Update
     measurementMap[currentPrefix].lastValues[faceId].pop_back();
     measurementMap[currentPrefix].lastValues[faceId].push_front(value);
 
   }
+
+  void initilizeLastValues(std::string currentPrefix, FaceId faceId) {
+    std::list<double> emptyLastValues;
+    for (int i = 0; i < LAST_VALUES_VECTOR_LENGTH; i++) {
+      emptyLastValues.push_back((i % 10) * 0.1);
+    }
+    measurementMap[currentPrefix].lastValues[faceId] = emptyLastValues;
+  }
+
+  /**
+   * Calculates the entropy of the last N messages, where N represents the
+   * LAST_VALUES_VECTOR_LENGTH. The Entropy is normalized to [0..1].
+   *
+   * @param currentPrefix 
+   * @param faceId
+   */
+  double
+  getNormalizedEntropy(std::string currentPrefix, FaceId faceId)
+  {
+    double maxEntropy = 3.33;
+
+    float bins[10] = {};
+
+    if (measurementMap[currentPrefix].lastValues.find(faceId) == measurementMap[currentPrefix].lastValues.end()) {
+      initilizeLastValues(currentPrefix, faceId);
+    }
+
+    auto history = measurementMap[currentPrefix].lastValues[faceId];
+    for (auto elem : measurementMap[currentPrefix].lastValues[faceId]) {
+      bins[(int)(elem * 10)]  += 1;
+    }
+    
+    double entropy = 0;
+    for (auto bin : bins) {
+      if (bin > 0) {
+        float percentage = bin / (float)history.size();
+        entropy += percentage * log2(percentage);
+      }
+    }
+    if (entropy < 0){
+      entropy *= -1;
+    }
+
+    // normalize entropy to [0..1]
+    entropy = entropy / maxEntropy;
+
+    return entropy;
+  }
+
+
 
 private:
   StrategyChoice& ownStrategyChoice;
@@ -176,6 +232,8 @@ private:
 
   // A map containing measurements for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;
+
+  boost::random::mt19937 m_randomGenerator;
 };
 
 }  // namespace fw
