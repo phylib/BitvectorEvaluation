@@ -191,7 +191,11 @@ protected:
 
     auto history = measurementMap[currentPrefix].lastValues[faceId];
     for (auto elem : measurementMap[currentPrefix].lastValues[faceId]) {
-      bins[(int)(elem * 10)]  += 1;
+      if (elem >= 1) {
+        bins[9]  += 1;  
+      } else {
+        bins[(int)(elem * 10)]  += 1;
+      }
     }
     
     double entropy = 0;
@@ -241,7 +245,6 @@ private:
   // A map containing measurements for each prefix this strategy is currently dealing with.
   std::unordered_map<std::string, MeasurementInfo> measurementMap;
 
-  //ns3::Ptr<ns3::UniformRandomVariable> rvariable;
   ::ns3::Ptr<::ns3::UniformRandomVariable> randomVariable;
 };
 
