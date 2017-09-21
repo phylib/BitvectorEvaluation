@@ -102,7 +102,10 @@ private:
    * @param currentPrefix The Prefix of the interest which needs an outface for forwarding.
    * @returns FaceId of face that should be used for forwarding.
    */
-  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops, const shared_ptr<pit::Entry> pitEntry, std::string currentPrefix);
+  FaceId lookForBetterOutFaceId(const fib::NextHopList& nexthops,
+                                const FaceId inFace,
+                                const shared_ptr<pit::Entry> pitEntry,
+                                const std::string currentPrefix);
 
   /**
    * Tries to return a face by using the original bestRout algorithm. If no face is found this way

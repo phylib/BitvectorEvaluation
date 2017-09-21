@@ -76,20 +76,21 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
   // Check if packet is a probe (only probes may be redirected)
   if (interest.getName().toUri().find(PROBE_SUFFIX) != std::string::npos)
   {
-    // Determine best outFace (could be another one than currentBestOutFace)
-    FaceId currentWorkingFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
-    measurementMap[currentPrefix].currentWorkingFaceId = lookForBetterOutFaceId(nexthops, pitEntry, currentPrefix);
-    selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
-
-    // When the current working face is changed, the old face needs to be torn down
-    if (currentWorkingFaceId != selectedOutFaceId) {
-      NFD_LOG_INFO("Mark face " << currentWorkingFaceId << " as pending teardown: " << currentPrefix);
-      measurementMap[currentPrefix].pendingTeardowns.insert(currentWorkingFaceId);
-    }
 
     // Check if packet is untainted (tainted packets must not be redirected or measured)
     if (!interest.isTainted())
     {
+
+      // Determine best outFace (could be another one than currentBestOutFace)
+      FaceId currentWorkingFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
+      measurementMap[currentPrefix].currentWorkingFaceId = lookForBetterOutFaceId(nexthops, inFace.getId(), pitEntry, currentPrefix);
+      selectedOutFaceId = measurementMap[currentPrefix].currentWorkingFaceId;
+
+      // When the current working face is changed, the old face needs to be torn down
+      if (currentWorkingFaceId != selectedOutFaceId) {
+        NFD_LOG_INFO("Mark face " << currentWorkingFaceId << " as pending teardown: " << currentPrefix);
+        measurementMap[currentPrefix].pendingTeardowns.insert(currentWorkingFaceId);
+      }
 
       // Check if this router is allowed to use this probe for monitoring alternative routes
       if (TAINTING_ENABLED) {
@@ -179,15 +180,24 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
 
 
 FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nexthops,
+                                                  const FaceId inFace,
                                                   const shared_ptr<pit::Entry> pitEntry,
-                                                  std::string currentPrefix)
+                                                  const std::string currentPrefix)
 {
+  std::vector<uint64_t> alternatives;
+  for (auto nh : nexthops) {
+    if (nh.getFace().getId() == inFace || nh.getFace().getId() == measurementMap[currentPrefix].currentWorkingFaceId) {
+      continue;
+    }
+    alternatives.push_back(nh.getFace().getId());
+  }
+
   // Check if there is only one available face anyway.
-  if (nexthops.size() <= 2)
-  {
+  if (alternatives.empty()) {
     NFD_LOG_INFO("Only one face available. Using bestRoute." << pitEntry->getInterest().getName());
     return getFaceIdViaBestRoute(nexthops, pitEntry);
   }
+
   double delayLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::DELAY); 
   double lossLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::LOSS);
   double bandwidthLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::BANDWIDTH);
@@ -207,32 +217,26 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
   {
     NFD_LOG_INFO("Current face underperforms: Face " << measurementMap[currentPrefix].currentWorkingFaceId << ", " 
                   << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
+
+    double lowestLoss = 1.0;
+    uint64_t alternative = measurementMap[currentPrefix].currentWorkingFaceId;
+    for (auto nh : alternatives) {
+      double alternativeLoss = measurementMap[currentPrefix].faceInfoMap[nh].getCurrentValue(RequirementType::LOSS);
+      if (alternativeLoss < lowestLoss) {
+        lowestLoss = alternativeLoss;
+        alternative = nh;
+      }
+    }
+
     // Find potential alternative and get its performance
-    FaceId alternativeOutFaceId = getAlternativeOutFaceId(measurementMap[currentPrefix].currentWorkingFaceId, nexthops);
+    FaceId alternativeOutFaceId = alternative;
     double alternativeDelay = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::DELAY); 
     double alternativeLoss = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::LOSS); 
     double alternativeBandwidth = measurementMap[currentPrefix].faceInfoMap[alternativeOutFaceId].getCurrentValue(RequirementType::BANDWIDTH);
     
-    // Check if alternative performs well enough
-    if (alternativeDelay <= delayLimit && alternativeLoss <= lossLimit && alternativeBandwidth >= bandwidthLimit)
-    {
-      if (canForwardToLegacy(*pitEntry, getFaceViaId(alternativeOutFaceId, nexthops))) 
-      { 
-        NFD_LOG_INFO("Well performing alternative face found: " << alternativeOutFaceId);
-        return alternativeOutFaceId; 
-      }
-    }
-    else 
-    {
-      /* 
-       * If alternative also underperforms, take the next alternative and hope for the best 
-       * (since there will be no performance data available yet)
-       */
-      if (canForwardToLegacy(*pitEntry, getFaceViaId(alternativeOutFaceId, nexthops))) 
-      { 
-        NFD_LOG_INFO("Taking next best alternative out of desperation: " << getAlternativeOutFaceId(alternativeOutFaceId, nexthops) << " " << pitEntry->getInterest().getName());
-        return getAlternativeOutFaceId(alternativeOutFaceId, nexthops); 
-      }      
+    if (canForwardToLegacy(*pitEntry, getFaceViaId(alternativeOutFaceId, nexthops))) {
+      NFD_LOG_INFO("Well performing alternative face found: " << alternativeOutFaceId);
+      return alternativeOutFaceId;
     }
   } 
   // If current path performs well enough, just stay on it.
