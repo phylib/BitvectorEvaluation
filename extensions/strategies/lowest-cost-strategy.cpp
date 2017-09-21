@@ -94,16 +94,20 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
       // Check if this router is allowed to use this probe for monitoring alternative routes
       if (TAINTING_ENABLED) {
 
+        // Get all possible out-faces
         std::vector<uint64_t> outFaces;
         for (auto nh : nexthops) {
+          // Exclude inFace and selectedOutFaceId
           if (nh.getFace().getId() == inFace.getId() || nh.getFace().getId() == selectedOutFaceId) {
             continue;
           }
           outFaces.push_back(nh.getFace().getId());
         }
 
+        // Get alternative probing face based on entropy
         uint64_t alternativeOutFace = getProbingOutFaceId(currentPrefix, inFace.getId(), selectedOutFaceId, outFaces);
 
+        // When probe is redirected, taint interest and notify prev. nodes via NACK
         if (alternativeOutFace != selectedOutFaceId) {
 
           // Mark Interest as tainted, so other routers don't use it or its data packtes for measurements
@@ -111,7 +115,7 @@ void LowestCostStrategy::afterReceiveInterest(const Face& inFace,
           Interest& nonConstInterest = const_cast<Interest&>(interest);
           nonConstInterest.setTainted(true);
 
-          NFD_LOG_INFO("Tainted this interest: " << interest.getName());
+          NFD_LOG_INFO("Tainted interest: " << interest.getName());
 
           // Remember that this probe was tainted by this router, so the corresponding data can be recognized
           measurementMap[currentPrefix].myTaintedProbes.insert(interest.getName().toUri());
@@ -243,15 +247,16 @@ LowestCostStrategy::getProbingOutFaceId(const std::string currentPrefix,
                                             const std::vector<uint64_t> nexthops)
 {
   NFD_LOG_DEBUG("getProbingOutFaceId for  " << currentPrefix << "; currentOutFace=" << currentOutFace);
-  // Check if there is more than one outFace (no need to redirect if no alternatives available)
-  //boost::random::uniform_real_distribution<> dist(0, 1);
+
+  // If no alternative is available, skip entropy calculation
+  if (nexthops.empty()) {
+    return currentOutFace;
+  }
 
   std::vector<uint64_t> nh_vector;
   nh_vector.push_back(currentOutFace);
   for (uint64_t nh : nexthops) {
-    if (nh != inFace && nh != currentOutFace) {
-      nh_vector.push_back(nh);
-    }
+    nh_vector.push_back(nh);
   }
 
   for (uint64_t nh : nh_vector) {
@@ -259,7 +264,6 @@ LowestCostStrategy::getProbingOutFaceId(const std::string currentPrefix,
     double entropy_norm = getNormalizedEntropy(currentPrefix, nh);
 
     double rand = randomVariable->GetValue ();
-    NFD_LOG_DEBUG("RandomNumber=" << rand);
     if (rand >= 0.5 - (0.5 * entropy_norm)) {
       NFD_LOG_DEBUG("Alternative found: face=" << nh);
       return nh;
