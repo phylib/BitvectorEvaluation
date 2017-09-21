@@ -198,9 +198,6 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
     return getFaceIdViaBestRoute(nexthops, pitEntry);
   }
 
-  double delayLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::DELAY); 
-  double lossLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::LOSS);
-  double bandwidthLimit = measurementMap[currentPrefix].req.getLimit(RequirementType::BANDWIDTH);
   double currentDelay = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId].getCurrentValue(RequirementType::DELAY); 
   double currentLoss = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId].getCurrentValue(RequirementType::LOSS); 
   double currentBandwidth = measurementMap[currentPrefix].faceInfoMap[measurementMap[currentPrefix].currentWorkingFaceId].getCurrentValue(RequirementType::BANDWIDTH);
@@ -212,21 +209,18 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
     return measurementMap[currentPrefix].currentWorkingFaceId;
   }
 
-  // Check if current working path underperforms
-  if (currentDelay > delayLimit || currentLoss > lossLimit || currentBandwidth < bandwidthLimit)
-  {
-    NFD_LOG_INFO("Current face underperforms: Face " << measurementMap[currentPrefix].currentWorkingFaceId << ", " 
-                  << currentDelay << ", " << currentLoss * 100 << "%, " << currentBandwidth);
 
-    double lowestLoss = 1.0;
-    uint64_t alternative = measurementMap[currentPrefix].currentWorkingFaceId;
-    for (auto nh : alternatives) {
-      double alternativeLoss = measurementMap[currentPrefix].faceInfoMap[nh].getCurrentValue(RequirementType::LOSS);
-      if (alternativeLoss < lowestLoss) {
-        lowestLoss = alternativeLoss;
-        alternative = nh;
-      }
+  double lowestLoss = 1.0;
+  uint64_t alternative = measurementMap[currentPrefix].currentWorkingFaceId;
+  for (auto nh : alternatives) {
+    double alternativeLoss = measurementMap[currentPrefix].faceInfoMap[nh].getCurrentValue(RequirementType::LOSS);
+    if (alternativeLoss < lowestLoss) {
+      lowestLoss = alternativeLoss;
+      alternative = nh;
     }
+  }
+
+  if (lowestLoss < currentLoss * 0.9) {
 
     // Find potential alternative and get its performance
     FaceId alternativeOutFaceId = alternative;
@@ -238,9 +232,10 @@ FaceId LowestCostStrategy::lookForBetterOutFaceId(const fib::NextHopList& nextho
       NFD_LOG_INFO("Well performing alternative face found: " << alternativeOutFaceId);
       return alternativeOutFaceId;
     }
-  } 
+  }
+
   // If current path performs well enough, just stay on it.
-  NFD_LOG_INFO("Current working path performs well enough. Staying on it. " << measurementMap[currentPrefix].currentWorkingFaceId);
+  NFD_LOG_INFO("No path better than current working path found. Staying on it. " << measurementMap[currentPrefix].currentWorkingFaceId);
   return measurementMap[currentPrefix].currentWorkingFaceId;
 }
 
