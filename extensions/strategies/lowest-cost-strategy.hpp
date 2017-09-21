@@ -216,10 +216,7 @@ protected:
   }
 
   uint64_t
-  simpleEntropyBasedStuff(const std::string currentPrefix, const FaceId currentOutFace, const std::vector<uint64_t> alternatives);
-
-  uint64_t
-  getAlternativeOutFaceId(const std::string currentPrefix, const FaceId inFace, const FaceId currentOutFace, const std::vector<uint64_t> nexthops);
+  getProbingOutFaceId(const std::string currentPrefix, const FaceId inFace, const FaceId currentOutFace, const std::vector<uint64_t> nexthops);
 
 
 
