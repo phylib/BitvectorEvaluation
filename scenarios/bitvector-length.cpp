@@ -184,7 +184,7 @@ main(int argc, char* argv[])
   saveCallInfo(logDir + "callInfo.csv", callLog);
 
   for(int i = 0; i < linkErrors; i++)
-    gen.creatRandomLinkFailure(0, simTime, avgCallDuration * 0.8, avgCallDuration * 1.2);
+    gen.creatRandomLinkFailure(0, simTime, 2250, 2250);
   gen.exportLinkFailures(logDir + "link-failures.csv");
   
 
