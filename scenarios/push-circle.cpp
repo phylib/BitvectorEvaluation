@@ -81,7 +81,7 @@ main(int argc, char* argv[])
   consumerNodes.Add(Names::Find<Node>("Cons1"));
 
   Ptr<Node> consumer2 = Names::Find<Node>("Cons2");
-  consumerNodes.Add(Names::Find<Node>("Cons2"));
+  //consumerNodes.Add(Names::Find<Node>("Cons2"));
 
   // Installing applications
 
@@ -109,6 +109,7 @@ main(int argc, char* argv[])
   ndn::AppHelper consumerHelper("ns3::ndn::PushConsumer"); // Caller helper for push
   consumerHelper.SetAttribute("LifeTime", StringValue("5s"));
   consumerHelper.SetAttribute("PIRefreshInterval", StringValue("1.5s"));
+  consumerHelper.SetAttribute("ProbeFrequency", StringValue("0"));
   consumerHelper.SetPrefix(prefix);
   
   consumerHelper.Install(consumerNodes);
