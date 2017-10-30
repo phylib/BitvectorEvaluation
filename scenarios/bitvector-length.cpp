@@ -67,6 +67,7 @@ main(int argc, char* argv[])
   std::string linkErrorParam = "0";
   std::string skipLogging = "false";
   std::string numCalls = "20";
+  std::string bitvectorLength = "0";
 
   // Read Commandline Parameters
   CommandLine cmd;
@@ -78,6 +79,7 @@ main(int argc, char* argv[])
   cmd.AddValue("piRefreshFrequency", "Number of Refresh Persistent Interests per Second", piRefreshFrequency);
   cmd.AddValue("linkErrors", "Number of link errors during simulation", linkErrorParam);
   cmd.AddValue("calls", "Number of simulated telephone calls", numCalls);
+  cmd.AddValue("bitvectorLength", "Length of the bitvector for loop detection", bitvectorLength);
   cmd.AddValue("skipLogging", "No logging when parameter is true", skipLogging);
   cmd.Parse(argc, argv);
 
@@ -97,7 +99,10 @@ main(int argc, char* argv[])
   std::cout << "PI Refresh Frequency: " << piRefreshFrequency << std::endl;
   std::cout << "Link errors: " << linkErrors << std::endl;
   std::cout << "Phone calls: " << numCalls << std::endl;
+  std::cout << "Bitvector length: " << bitvectorLength << std::endl;
   std::cout << std::endl;
+
+  ParameterConfiguration::getInstance()->setParameter("bitector_length", std::stoi(bitvectorLength));
 
   // 1) Parse Brite-Config and generate network with BRITE
   ns3::ndn::NetworkGenerator gen(confFile, queue, 50);
