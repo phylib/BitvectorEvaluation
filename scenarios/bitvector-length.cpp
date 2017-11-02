@@ -146,6 +146,11 @@ main(int argc, char* argv[])
   p2p->SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
   gen.randomlyPlaceNodes (std::stoi(numCalls), "Client",ns3::ndn::NetworkGenerator::LeafNode, p2p);
 
+  p2p->SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
+  gen.randomlyPlaceNodes (4, "DataServer",ns3::ndn::NetworkGenerator::LeafNode, p2p);
+  p2p->SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
+  gen.randomlyPlaceNodes (4, "DataClient",ns3::ndn::NetworkGenerator::LeafNode, p2p);
+
 
   // 3) Install NDN Stack on all nodes
   ns3::ndn::StackHelper ndnHelper;
@@ -283,6 +288,34 @@ main(int argc, char* argv[])
         consumer.Start(MilliSeconds(arrival));
         consumer.Stop(MilliSeconds(end));
       }
+  }
+
+  NodeContainer dataServer = gen.getCustomNodes ("DataServer");
+  ndnHelper.Install(dataServer);
+  NodeContainer dataClient = gen.getCustomNodes ("DataClient");
+  ndnHelper.Install(dataClient);
+  // 7) Configure Cross-Traffic
+  ndn::AppHelper producerHelper("ns3::ndn::Producer");
+  producerHelper.SetAttribute("PayloadSize", StringValue("1024"));
+  for (uint i = 0; i < dataServer.size(); i++) {
+    Ptr<Node> server = dataServer.Get(i);
+    std::string prefix = "/data/" + boost::lexical_cast<std::string>(server->GetId());
+    producerHelper.SetPrefix(prefix);
+    producerHelper.Install(server);
+    ndnGlobalRoutingHelper.AddOrigins(prefix, server);
+  }
+
+  // Cross-Traffic Consumer
+  ndn::AppHelper consumerHelper("ns3::ndn::ConsumerCbr");
+  consumerHelper.SetAttribute("Frequency", StringValue("100")); // 100 interests a second
+  for (uint i = 0; i < dataClient.size(); i++) {
+
+    Ptr<Node> server = dataServer.Get(i);
+    Ptr<Node> cl = dataClient.Get(i);
+    std::string prefix = "/data/" + boost::lexical_cast<std::string>(server->GetId());
+    consumerHelper.SetPrefix(prefix);
+
+    consumerHelper.Install(cl);
   }
 
   // 8) Configure Traces
