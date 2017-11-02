@@ -162,6 +162,11 @@ main(int argc, char* argv[])
   NodeContainer client = gen.getCustomNodes ("Client");
   ndnHelper.Install(client);
 
+  NodeContainer dataServer = gen.getCustomNodes ("DataServer");
+  ndnHelper.Install(dataServer);
+  NodeContainer dataClient = gen.getCustomNodes ("DataClient");
+  ndnHelper.Install(dataClient);
+
   // 4) Install routing helper on all nodes
   ns3::ndn::GlobalRoutingHelper ndnGlobalRoutingHelper;
   ndnGlobalRoutingHelper.InstallAll ();
@@ -289,11 +294,7 @@ main(int argc, char* argv[])
         consumer.Stop(MilliSeconds(end));
       }
   }
-
-  NodeContainer dataServer = gen.getCustomNodes ("DataServer");
-  ndnHelper.Install(dataServer);
-  NodeContainer dataClient = gen.getCustomNodes ("DataClient");
-  ndnHelper.Install(dataClient);
+  
   // 7) Configure Cross-Traffic
   ndn::AppHelper producerHelper("ns3::ndn::Producer");
   producerHelper.SetAttribute("PayloadSize", StringValue("1024"));
