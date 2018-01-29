@@ -9,12 +9,8 @@ As the implementation of Persistent Interests requires a modified version of
 the NFD, the NFD has to be patched first. Files for patching NFD can be found
 in the 'extern' folder.
 
-Custom version of NS-3 and specified version of ndnSIM needs to be installed.
-
-The code should also work with the latest version of ndnSIM, but it is not guaranteed.
-
     # Checkout latest version of ndnSIM
-    mdkir persistent-interests
+    mkdir persistent-interests
     cd persistent-interests
     git clone https://github.com/named-data-ndnSIM/ns-3-dev.git ns-3
     git clone https://github.com/named-data-ndnSIM/pybindgen.git pybindgen
@@ -52,3 +48,17 @@ The code should also work with the latest version of ndnSIM, but it is not guara
     cp extern/ndn-cxx/qci.hpp ../ns-3/src/ndnSIM/ndn-cxx/src/encoding/
     cp extern/ndn-cxx/tlv.hpp ../ns-3/src/ndnSIM/ndn-cxx/src/encoding/
     cp extern/ndn-cxx/nack-header.* ../ns-3/src/ndnSIM/ndn-cxx/src/lp/
+
+    # Recompile ndnSIM
+    cd ../ns-3/
+    ./waf && ./waf install
+
+## Run Scenario
+
+You can find a couple of scenarios in the 'scenarios' folder. 'The push-2-consumer'
+scenario implements a simple topology including 2 consumer, requesting different
+prefixes with Persistent Interests.
+
+In the scenario 'bitvector-length', a randomly generated network is created, in
+which multiple consumer/producer pairs request Data over this network. Because
+Data loops can occur, a bitvector length can be specified as parameter.
