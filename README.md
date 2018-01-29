@@ -7,7 +7,7 @@ The scenario is build on the [ndnSIM scenario-template](https://github.com/named
 
 As the implementation of Persistent Interests requires a modified version of
 the NFD, the NFD has to be patched first. Files for patching NFD can be found
-in the 'extern' folder.
+in the `extern` folder.
 
     # Checkout latest version of ndnSIM
     mkdir persistent-interests
@@ -55,10 +55,10 @@ in the 'extern' folder.
 
 ## Run Scenario
 
-You can find a couple of scenarios in the 'scenarios' folder. 'The push-2-consumer'
+You can find a couple of scenarios in the `scenarios` folder. `The push-2-consumer`
 scenario implements a simple topology including 2 consumer, requesting different
 prefixes with Persistent Interests.
 
-In the scenario 'bitvector-length', a randomly generated network is created, in
+In the scenario `bitvector-length`, a randomly generated network is created, in
 which multiple consumer/producer pairs request Data over this network. Because
 Data loops can occur, a bitvector length can be specified as parameter.
